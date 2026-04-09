@@ -1,0 +1,388 @@
+import { useEffect, useRef, useState } from 'react'
+import { supabasePublic } from '../supabase'
+
+const COUNTDOWN_SECONDS = 10
+const APPOINTMENT_TYPES = ['Scheduled Advising Appointment', 'Drop-In']
+
+const inputClass =
+  'w-full border rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[#003366] focus:border-transparent transition-colors'
+const inputNormal = `${inputClass} border-gray-300`
+const inputError  = `${inputClass} border-red-400 bg-red-50`
+
+function FieldError({ msg }) {
+  if (!msg) return null
+  return (
+    <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
+      <span aria-hidden>⚠</span> {msg}
+    </p>
+  )
+}
+
+export default function KioskPage() {
+  const [step, setStep] = useState('form') // 'form' | 'success'
+  const [submitting, setSubmitting]   = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [countdown, setCountdown]     = useState(COUNTDOWN_SECONDS)
+  const countdownRef = useRef(null)
+
+  // Reference data
+  const [colleges, setColleges]             = useState([])
+  const [allAdvisors, setAllAdvisors]       = useState([])
+  const [loadingOptions, setLoadingOptions] = useState(true)
+  const [loadError, setLoadError]           = useState('') // surfaced if Supabase fails to load options
+
+  // Form values
+  const [name, setName]                   = useState('')
+  const [email, setEmail]                 = useState('')
+  const [collegeId, setCollegeId]         = useState('')
+  const [advisorId, setAdvisorId]         = useState('')
+  const [appointmentType, setAppointmentType] = useState('')
+
+  // Field errors
+  const [nameError, setNameError]               = useState('')
+  const [emailError, setEmailError]             = useState('')
+  const [collegeError, setCollegeError]         = useState('')
+  const [advisorError, setAdvisorError]         = useState('')
+  const [appointmentError, setAppointmentError] = useState('')
+
+  const [checkedInName, setCheckedInName] = useState('')
+
+  // Advisors filtered by the selected college
+  const filteredAdvisors = collegeId
+    ? allAdvisors.filter((a) => a.college_id === collegeId)
+    : []
+
+  useEffect(() => {
+    async function loadOptions() {
+      try {
+        const [{ data: collegeData, error: collegeErr }, { data: advisorData, error: advisorErr }] = await Promise.all([
+          supabasePublic
+            .from('colleges')
+            .select('id, name')
+            .eq('is_active', true)
+            .order('name', { ascending: true }),
+          supabasePublic
+            .from('advisors')
+            .select('id, name, college_id')
+            .eq('is_active', true)
+            .order('name', { ascending: true }),
+        ])
+        if (collegeErr) throw new Error(`Colleges: ${collegeErr.message}`)
+        if (advisorErr) throw new Error(`Advisors: ${advisorErr.message}`)
+        setColleges(collegeData || [])
+        setAllAdvisors(advisorData || [])
+      } catch (err) {
+        setLoadError(`Failed to load form options: ${err.message}`)
+      } finally {
+        setLoadingOptions(false)
+      }
+    }
+    loadOptions()
+  }, [])
+
+  // When college changes, clear the advisor selection
+  const handleCollegeChange = (e) => {
+    setCollegeId(e.target.value)
+    setAdvisorId('')
+    setAdvisorError('')
+    if (collegeError) setCollegeError('')
+  }
+
+  // Countdown on success screen
+  useEffect(() => {
+    if (step !== 'success') return
+    setCountdown(COUNTDOWN_SECONDS)
+    countdownRef.current = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(countdownRef.current)
+          handleReset()
+          return 0
+        }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(countdownRef.current)
+  }, [step])
+
+  const handleReset = () => {
+    clearInterval(countdownRef.current)
+    setStep('form')
+    setName('')
+    setEmail('')
+    setCollegeId('')
+    setAdvisorId('')
+    setAppointmentType('')
+    setNameError('')
+    setEmailError('')
+    setCollegeError('')
+    setAdvisorError('')
+    setAppointmentError('')
+    setSubmitError('')
+  }
+
+  const validateEmail = (val) => {
+    if (!val) return 'Email is required.'
+    if (!val.toLowerCase().endsWith('sc.edu')) return 'Email must end in sc.edu.'
+    return ''
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSubmitError('')
+
+    const nErr = name.trim()       ? '' : 'Full name is required.'
+    const eErr = validateEmail(email)
+    const cErr = collegeId         ? '' : 'Please select your college.'
+    const aErr = advisorId         ? '' : 'Please select an advisor.'
+    const apErr = appointmentType  ? '' : 'Please select an appointment type.'
+
+    setNameError(nErr)
+    setEmailError(eErr)
+    setCollegeError(cErr)
+    setAdvisorError(aErr)
+    setAppointmentError(apErr)
+
+    if (nErr || eErr || cErr || aErr || apErr) return
+
+    setSubmitting(true)
+    try {
+      const { error: dbError } = await supabasePublic.from('queue').insert([{
+        student_name:     name.trim(),
+        student_email:    email.trim().toLowerCase(),
+        advisor_id:       advisorId,
+        college_id:       collegeId,
+        appointment_type: appointmentType,
+        status:           'waiting',
+        checked_in_at:    new Date().toISOString(),
+      }])
+      if (dbError) throw dbError
+      setCheckedInName(name.trim())
+      setStep('success')
+    } catch (err) {
+      setSubmitError(err.message || 'Something went wrong. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // ── Success screen ────────────────────────────────────────────────────────
+  if (step === 'success') {
+    const pct = ((COUNTDOWN_SECONDS - countdown) / COUNTDOWN_SECONDS) * 100
+    return (
+      <div className="min-h-screen bg-[#003366] flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-10 text-center">
+          <div className="w-24 h-24 rounded-full bg-[#FFB300] flex items-center justify-center mx-auto mb-6 shadow-lg">
+            <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+
+          <h2 className="text-3xl font-bold text-[#003366] mb-3">You're checked in!</h2>
+          <p className="text-gray-700 text-lg mb-2">
+            Welcome, <span className="font-semibold">{checkedInName}</span>.
+          </p>
+          <p className="text-gray-500 mb-8">
+            Your advisor will be with you shortly. Please have a seat.
+          </p>
+
+          <div className="flex flex-col items-center gap-3 mb-8">
+            <div className="relative w-16 h-16">
+              <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="28" fill="none" stroke="#e5e7eb" strokeWidth="4" />
+                <circle
+                  cx="32" cy="32" r="28"
+                  fill="none" stroke="#003366" strokeWidth="4"
+                  strokeDasharray={`${2 * Math.PI * 28}`}
+                  strokeDashoffset={`${2 * Math.PI * 28 * (1 - pct / 100)}`}
+                  strokeLinecap="round"
+                  style={{ transition: 'stroke-dashoffset 0.9s linear' }}
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-[#003366]">
+                {countdown}
+              </span>
+            </div>
+            <p className="text-sm text-gray-400">
+              Returning to check-in in {countdown} second{countdown !== 1 ? 's' : ''}…
+            </p>
+          </div>
+
+          <button
+            onClick={handleReset}
+            className="w-full bg-[#003366] text-white py-3 rounded-lg font-semibold hover:bg-[#002244] transition-colors"
+          >
+            Check In Another Student
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Form ──────────────────────────────────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-[#003366] flex flex-col items-center justify-center p-6">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+
+        {/* Header */}
+        <div className="bg-[#003366] px-8 py-8 text-center">
+          <div className="inline-flex items-center gap-2 mb-4">
+            <div className="w-8 h-px bg-[#FFB300]" />
+            <span className="text-[#FFB300] text-xs font-bold uppercase tracking-widest">
+              University of South Carolina
+            </span>
+            <div className="w-8 h-px bg-[#FFB300]" />
+          </div>
+          <h1 className="text-3xl font-bold text-white leading-tight">
+            Welcome to Academic Advising
+          </h1>
+          <p className="text-blue-200 mt-2 text-base">Please check in below.</p>
+        </div>
+
+        <form onSubmit={handleSubmit} noValidate className="px-8 py-7 space-y-5">
+
+          {/* 1. Full Name */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Student Full Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => { setName(e.target.value); if (nameError) setNameError('') }}
+              onBlur={() => setNameError(name.trim() ? '' : 'Full name is required.')}
+              placeholder="Your full name"
+              className={nameError ? inputError : inputNormal}
+              autoComplete="off"
+            />
+            <FieldError msg={nameError} />
+          </div>
+
+          {/* 2. USC Email */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              USC Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); if (emailError) setEmailError(validateEmail(e.target.value)) }}
+              onBlur={() => setEmailError(validateEmail(email))}
+              placeholder="yourname@sc.edu"
+              className={emailError ? inputError : inputNormal}
+              autoComplete="off"
+              inputMode="email"
+            />
+            <FieldError msg={emailError} />
+          </div>
+
+          {/* 3. College */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              College <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={collegeId}
+              onChange={handleCollegeChange}
+              onBlur={() => setCollegeError(collegeId ? '' : 'Please select your college.')}
+              disabled={loadingOptions}
+              className={`${collegeError ? inputError : inputNormal} bg-white disabled:opacity-60`}
+            >
+              <option value="">
+                {loadingOptions ? 'Loading…' : 'Select your college...'}
+              </option>
+              {colleges.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <FieldError msg={collegeError} />
+          </div>
+
+          {/* 4. Advisor */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Select Your Advisor <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={advisorId}
+              onChange={(e) => { setAdvisorId(e.target.value); if (advisorError) setAdvisorError('') }}
+              onBlur={() => setAdvisorError(advisorId ? '' : 'Please select an advisor.')}
+              disabled={loadingOptions || !collegeId}
+              className={`${advisorError ? inputError : inputNormal} bg-white disabled:opacity-60`}
+            >
+              <option value="">
+                {!collegeId
+                  ? 'Select a college first'
+                  : filteredAdvisors.length === 0
+                  ? 'No advisors available'
+                  : 'Select your advisor...'}
+              </option>
+              {filteredAdvisors.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <FieldError msg={advisorError} />
+          </div>
+
+          {/* 5. Appointment Type */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Appointment Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={appointmentType}
+              onChange={(e) => { setAppointmentType(e.target.value); if (appointmentError) setAppointmentError('') }}
+              onBlur={() => setAppointmentError(appointmentType ? '' : 'Please select an appointment type.')}
+              className={`${appointmentError ? inputError : inputNormal} bg-white`}
+            >
+              <option value="">Select an appointment type...</option>
+              {APPOINTMENT_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <FieldError msg={appointmentError} />
+          </div>
+
+          {/* Load error */}
+          {loadError && (
+            <div className="bg-red-50 border border-red-300 text-red-700 rounded-lg px-4 py-3 text-sm flex items-start gap-2">
+              <span className="mt-0.5">⚠</span>
+              <span>{loadError}</span>
+            </div>
+          )}
+
+          {/* Submit error */}
+          {submitError && (
+            <div className="bg-red-50 border border-red-300 text-red-700 rounded-lg px-4 py-3 text-sm flex items-start gap-2">
+              <span className="mt-0.5">⚠</span>
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          {/* 6. Submit */}
+          <button
+            type="submit"
+            disabled={submitting || loadingOptions}
+            className="w-full bg-[#003366] text-white font-bold py-3.5 rounded-lg hover:bg-[#002244] transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-lg flex items-center justify-center gap-2 shadow-md mt-2"
+          >
+            {submitting ? (
+              <>
+                <svg className="animate-spin w-5 h-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                </svg>
+                Checking In…
+              </>
+            ) : (
+              'Check In'
+            )}
+          </button>
+        </form>
+      </div>
+
+      <p className="text-blue-300 text-xs mt-5">
+        Need help? Ask the front desk staff for assistance.
+      </p>
+    </div>
+  )
+}
