@@ -7,6 +7,7 @@ import NavBar from '../components/NavBar'
 function playChime() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    ctx.resume()
     const master = ctx.createGain()
     master.connect(ctx.destination)
 
@@ -46,7 +47,7 @@ function ToastList({ toasts }) {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className="bg-[#003366] text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-start gap-2 max-w-xs animate-fade-in"
+          className="bg-[#FFB300] text-[#003366] text-sm px-4 py-3 rounded-xl shadow-xl flex items-start gap-2 max-w-xs animate-fade-in"
         >
           <span className="text-[#FFB300] mt-0.5">🔔</span>
           <span>{t.message}</span>
@@ -186,7 +187,7 @@ export default function AdvisorPage() {
     if (!advisorId) return
     fetchQueue()
 
-    const poll = setInterval(fetchQueue, 5000)
+    const poll = setInterval(fetchQueue, 2000)
 
     const channel = supabase
       .channel(`advisor-queue-${advisorId}`)
