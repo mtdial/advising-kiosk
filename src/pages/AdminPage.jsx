@@ -524,10 +524,10 @@ function ManageAdvisorsTab({ colleges }) {
 
   useEffect(() => { fetchAdvisors() }, [fetchAdvisors])
 
-  const toggle = async (id, current) => {
-    setToggling(id)
-    await supabase.from('advisors').update({ is_active: !current }).eq('id', id)
-    setAdvisors((prev) => prev.map((a) => a.id === id ? { ...a, is_active: !current } : a))
+  const toggle = async (id, current, field = 'is_active') => {
+    setToggling(`${id}:${field}`)
+    await supabase.from('advisors').update({ [field]: !current }).eq('id', id)
+    setAdvisors((prev) => prev.map((a) => a.id === id ? { ...a, [field]: !current } : a))
     setToggling(null)
   }
 
@@ -570,12 +570,12 @@ function ManageAdvisorsTab({ colleges }) {
       {advisors.length === 0 ? (
         <div className="bg-white rounded-xl shadow p-12 text-center text-gray-400">No advisors found.</div>
       ) : (
-        <div className="bg-white rounded-xl shadow overflow-hidden">
+        <div className="bg-white rounded-xl shadow overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                {['Name', 'Email', 'College', 'Role', 'Status', ''].map((h) => (
-                  <th key={h} className="px-5 py-3 text-gray-600 font-semibold">{h}</th>
+                {['Name', 'Email', 'College', 'Role', 'Status', 'College Admin', 'UAC Suite', 'Suite Admin', ''].map((h) => (
+                  <th key={h} className="px-5 py-3 text-gray-600 font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -590,13 +590,34 @@ function ManageAdvisorsTab({ colleges }) {
                     <div className="flex items-center gap-2.5">
                       <Toggle
                         checked={a.is_active}
-                        onChange={() => toggle(a.id, a.is_active)}
-                        disabled={toggling === a.id}
+                        onChange={() => toggle(a.id, a.is_active, 'is_active')}
+                        disabled={toggling === `${a.id}:is_active`}
                       />
                       <span className={`text-xs font-semibold ${a.is_active ? 'text-green-700' : 'text-gray-400'}`}>
                         {a.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
+                  </td>
+                  <td className="px-5 py-3">
+                    <Toggle
+                      checked={!!a.is_college_admin}
+                      onChange={() => toggle(a.id, a.is_college_admin, 'is_college_admin')}
+                      disabled={toggling === `${a.id}:is_college_admin`}
+                    />
+                  </td>
+                  <td className="px-5 py-3">
+                    <Toggle
+                      checked={!!a.is_uac_suite}
+                      onChange={() => toggle(a.id, a.is_uac_suite, 'is_uac_suite')}
+                      disabled={toggling === `${a.id}:is_uac_suite`}
+                    />
+                  </td>
+                  <td className="px-5 py-3">
+                    <Toggle
+                      checked={!!a.is_suite_admin}
+                      onChange={() => toggle(a.id, a.is_suite_admin, 'is_suite_admin')}
+                      disabled={toggling === `${a.id}:is_suite_admin`}
+                    />
                   </td>
                   <td className="px-5 py-3">
                     <button

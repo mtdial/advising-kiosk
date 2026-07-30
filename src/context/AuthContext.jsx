@@ -7,27 +7,45 @@ async function fetchAdvisorProfile(email) {
   if (!email) return null
   const { data } = await supabase
     .from('advisors')
-    .select('id, name, role')
+    .select('id, name, role, college_id, is_college_admin, is_suite_admin')
     .eq('email', email.toLowerCase())
     .maybeSingle()
   return data ?? null
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser]               = useState(null)
-  const [role, setRole]               = useState(null)
-  const [advisorId, setAdvisorId]     = useState(null)
-  const [advisorName, setAdvisorName] = useState(null)
-  const [loading, setLoading]         = useState(true)
+  const [user, setUser]                 = useState(null)
+  const [role, setRole]                 = useState(null)
+  const [advisorId, setAdvisorId]       = useState(null)
+  const [advisorName, setAdvisorName]   = useState(null)
+  const [collegeId, setCollegeId]       = useState(null)
+  const [isCollegeAdmin, setIsCollegeAdmin] = useState(false)
+  const [isSuiteAdmin, setIsSuiteAdmin]     = useState(false)
+  const [loading, setLoading]           = useState(true)
+
+  const applyProfile = (profile) => {
+    setRole(profile?.role ?? null)
+    setAdvisorId(profile?.id ?? null)
+    setAdvisorName(profile?.name ?? null)
+    setCollegeId(profile?.college_id ?? null)
+    setIsCollegeAdmin(profile?.is_college_admin ?? false)
+    setIsSuiteAdmin(profile?.is_suite_admin ?? false)
+  }
+
+  const clearProfile = () => {
+    setRole(null)
+    setAdvisorId(null)
+    setAdvisorName(null)
+    setCollegeId(null)
+    setIsCollegeAdmin(false)
+    setIsSuiteAdmin(false)
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null)
       if (session?.user?.email) {
-        const profile = await fetchAdvisorProfile(session.user.email)
-        setRole(profile?.role ?? null)
-        setAdvisorId(profile?.id ?? null)
-        setAdvisorName(profile?.name ?? null)
+        applyProfile(await fetchAdvisorProfile(session.user.email))
       }
       setLoading(false)
     })
@@ -35,14 +53,9 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user?.email) {
-        const profile = await fetchAdvisorProfile(session.user.email)
-        setRole(profile?.role ?? null)
-        setAdvisorId(profile?.id ?? null)
-        setAdvisorName(profile?.name ?? null)
+        applyProfile(await fetchAdvisorProfile(session.user.email))
       } else {
-        setRole(null)
-        setAdvisorId(null)
-        setAdvisorName(null)
+        clearProfile()
       }
     })
 
@@ -53,13 +66,21 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     const profile = await fetchAdvisorProfile(email)
-    return { ...data, advisorRole: profile?.role ?? null, advisorName: profile?.name ?? null }
+    return {
+      ...data,
+      advisorRole:    profile?.role ?? null,
+      advisorName:    profile?.name ?? null,
+      isCollegeAdmin: profile?.is_college_admin ?? false,
+      isSuiteAdmin:   profile?.is_suite_admin ?? false,
+    }
   }
 
   const signOut = () => supabase.auth.signOut()
 
   return (
-    <AuthContext.Provider value={{ user, role, advisorId, advisorName, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{
+      user, role, advisorId, advisorName, collegeId, isCollegeAdmin, isSuiteAdmin, loading, signIn, signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   )

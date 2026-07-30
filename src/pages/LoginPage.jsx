@@ -2,8 +2,15 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+function landingRoute({ role, isCollegeAdmin, isSuiteAdmin }) {
+  if (role === 'admin') return '/admin'
+  if (isCollegeAdmin) return '/college-admin'
+  if (isSuiteAdmin) return '/suite-admin'
+  return '/advisor'
+}
+
 export default function LoginPage() {
-  const { signIn, user, role, loading } = useAuth()
+  const { signIn, user, role, isCollegeAdmin, isSuiteAdmin, loading } = useAuth()
   const navigate = useNavigate()
 
   const [email, setEmail]       = useState('')
@@ -13,7 +20,7 @@ export default function LoginPage() {
 
   // Already authenticated — send to the right dashboard
   if (!loading && user) {
-    navigate(role === 'admin' ? '/admin' : '/advisor', { replace: true })
+    navigate(landingRoute({ role, isCollegeAdmin, isSuiteAdmin }), { replace: true })
     return null
   }
 
@@ -24,7 +31,11 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       const result = await signIn(email.trim(), password)
-      navigate(result.advisorRole === 'admin' ? '/admin' : '/advisor', { replace: true })
+      navigate(landingRoute({
+        role: result.advisorRole,
+        isCollegeAdmin: result.isCollegeAdmin,
+        isSuiteAdmin: result.isSuiteAdmin,
+      }), { replace: true })
     } catch {
       setError('Invalid email or password.')
     } finally {

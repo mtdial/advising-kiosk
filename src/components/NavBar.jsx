@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../supabase'
 
@@ -145,9 +145,18 @@ function ChangePasswordModal({ onClose }) {
 
 // ── NavBar ────────────────────────────────────────────────────────────────────
 
+const NAV_LINKS = [
+  { to: '/advisor',       label: 'My Queue',     show: () => true },
+  { to: '/college-admin', label: 'College Queue', show: (a) => a.isCollegeAdmin || a.role === 'admin' },
+  { to: '/suite-admin',   label: 'Suite Queue',   show: (a) => a.isSuiteAdmin || a.role === 'admin' },
+  { to: '/admin',         label: 'Admin',          show: (a) => a.role === 'admin' },
+]
+
 export default function NavBar() {
-  const { advisorName, role, signOut } = useAuth()
+  const auth = useAuth()
+  const { advisorName, role, signOut } = auth
   const navigate = useNavigate()
+  const location = useLocation()
   const [showChangePassword, setShowChangePassword] = useState(false)
 
   const handleSignOut = async () => {
@@ -155,17 +164,38 @@ export default function NavBar() {
     navigate('/login', { replace: true })
   }
 
+  const links = NAV_LINKS.filter((l) => l.show(auth))
+
   return (
     <>
       {showChangePassword && (
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
 
-      <nav className="bg-[#003366] text-white px-6 py-4 flex items-center justify-between shadow-lg">
-        {/* Left: app name */}
-        <div className="flex items-center gap-3">
-          <div className="w-1.5 h-7 bg-[#FFB300] rounded-full" />
-          <span className="font-bold text-lg tracking-tight">UAC Advising Kiosk</span>
+      <nav className="bg-[#003366] text-white px-6 py-4 flex items-center justify-between shadow-lg flex-wrap gap-3">
+        {/* Left: app name + nav links */}
+        <div className="flex items-center gap-5 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-7 bg-[#FFB300] rounded-full" />
+            <span className="font-bold text-lg tracking-tight">UAC Advising Kiosk</span>
+          </div>
+          {links.length > 1 && (
+            <div className="flex items-center gap-1">
+              {links.map((l) => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  className={`text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                    location.pathname === l.to
+                      ? 'bg-white/15 font-semibold'
+                      : 'text-blue-100 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right: user name + actions */}
