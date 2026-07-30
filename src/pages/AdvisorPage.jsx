@@ -74,8 +74,9 @@ function EmptyState() {
 
 // ── Queue card ────────────────────────────────────────────────────────────────
 function QueueCard({ entry, now, onInProgress, onSeen }) {
-  const isInProgress = entry.status === 'in-progress'
-  const collegeName  = entry.college?.name ?? '—'
+  const isInProgress   = entry.status === 'in-progress'
+  const collegeName    = entry.college?.name ?? '—'
+  const isNextAvailable = entry.advisor_id === null
 
   return (
     <div className={`bg-white rounded-2xl shadow-sm border-l-4 px-6 py-5 transition-all ${
@@ -88,13 +89,18 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           {/* Name + appointment type badge */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg font-bold text-gray-900">{entry.student_name}</span>
-            {entry.appointment_type === 'Drop-In' ? (
+            {entry.appointment_type === 'Office Hours: Drop-In' ? (
               <span className="text-xs font-bold bg-[#FFB300] text-[#003366] px-2.5 py-0.5 rounded-full">
-                Drop-In
+                Office Hours: Drop-In
               </span>
             ) : (
               <span className="text-xs font-bold bg-[#003366] text-white px-2.5 py-0.5 rounded-full">
                 Scheduled
+              </span>
+            )}
+            {isNextAvailable && (
+              <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2.5 py-0.5 rounded-full">
+                Next Available
               </span>
             )}
             {isInProgress && (
@@ -110,6 +116,12 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           {/* College */}
           <div className="text-sm text-gray-600">
             <span className="font-medium text-gray-700">College:</span> {collegeName}
+          </div>
+
+          {/* Who they're here to see */}
+          <div className="text-sm text-gray-600">
+            <span className="font-medium text-gray-700">Here to see:</span>{' '}
+            {isNextAvailable ? 'Next Available' : 'You'}
           </div>
 
           {/* Wait timer */}
@@ -148,7 +160,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function AdvisorPage() {
-  const { advisorId } = useAuth()
+  const { advisorId, collegeId } = useAuth()
   const [queue, setQueue]     = useState([])
   const [loading, setLoading] = useState(true)
   const [now, setNow]         = useState(Date.now())
@@ -168,19 +180,27 @@ export default function AdvisorPage() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000)
   }, [])
 
-  // ── Fetch queue (waiting + in-progress only, joined to colleges)
+  // ── Fetch queue (waiting + in-progress only, joined to colleges).
+  // Includes this advisor's own entries plus any "Next Available" entries
+  // (advisor_id is null) for their college, since those appear on every
+  // advisor's queue in that college.
   const fetchQueue = useCallback(async () => {
     if (!advisorId) return
-    const { data, error } = await supabase
+    let query = supabase
       .from('queue')
       .select('*, college:colleges(name)')
-      .eq('advisor_id', advisorId)
       .in('status', ['waiting', 'in-progress'])
       .order('checked_in_at', { ascending: true })
+
+    query = collegeId
+      ? query.or(`advisor_id.eq.${advisorId},advisor_id.is.null`).eq('college_id', collegeId)
+      : query.eq('advisor_id', advisorId)
+
+    const { data, error } = await query
     if (!error) setQueue(data ?? [])
     setLoading(false)
     hasLoaded.current = true
-  }, [advisorId])
+  }, [advisorId, collegeId])
 
   // ── Initial load + realtime subscription + polling fallback
   useEffect(() => {
@@ -189,21 +209,35 @@ export default function AdvisorPage() {
 
     const poll = setInterval(fetchQueue, 2000)
 
+    // Realtime filters only support a single equality condition, so
+    // subscribe broadly by college (falling back to advisor_id when the
+    // advisor has no college) and let fetchQueue's query do the precise
+    // filtering.
     const channel = supabase
       .channel(`advisor-queue-${advisorId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'queue', filter: `advisor_id=eq.${advisorId}` },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'queue',
+          filter: collegeId ? `college_id=eq.${collegeId}` : `advisor_id=eq.${advisorId}`,
+        },
         (payload) => {
-          // Play chime + toast only for brand-new check-ins while page is live
+          // Play chime + toast only for brand-new check-ins meant for this
+          // advisor (their own, or a Next Available for their college)
+          // while the page is live.
+          const isForThisAdvisor =
+            payload.new?.advisor_id === advisorId || payload.new?.advisor_id === null
           if (
             payload.eventType === 'INSERT' &&
             payload.new.status === 'waiting' &&
+            isForThisAdvisor &&
             hasLoaded.current
           ) {
             playChime()
             addToast(
-              `New check-in: ${payload.new.student_name} (${payload.new.appointment_type ?? 'Drop-In'})`
+              `New check-in: ${payload.new.student_name} (${payload.new.appointment_type ?? 'Office Hours: Drop-In'})`
             )
           }
           fetchQueue()
@@ -215,13 +249,31 @@ export default function AdvisorPage() {
       clearInterval(poll)
       supabase.removeChannel(channel)
     }
-  }, [advisorId, fetchQueue, addToast])
+  }, [advisorId, collegeId, fetchQueue, addToast])
 
   // ── Status update helpers
+
+  // Claiming a "Next Available" entry (advisor_id null) assigns it to this
+  // advisor so it stops appearing on every other advisor's queue. The
+  // .is('advisor_id', null) guard prevents two advisors from both claiming
+  // the same student if they click at the same moment.
   const handleInProgress = async (id) => {
-    await supabase.from('queue').update({ status: 'in-progress' }).eq('id', id)
+    const entry = queue.find((r) => r.id === id)
+    const isNextAvailable = entry?.advisor_id === null
+
+    let query = supabase
+      .from('queue')
+      .update(isNextAvailable ? { status: 'in-progress', advisor_id: advisorId } : { status: 'in-progress' })
+      .eq('id', id)
+    if (isNextAvailable) query = query.is('advisor_id', null)
+
+    const { error } = await query
+    if (error) return
+
     // optimistic update
-    setQueue((prev) => prev.map((r) => r.id === id ? { ...r, status: 'in-progress' } : r))
+    setQueue((prev) => prev.map((r) => r.id === id
+      ? { ...r, status: 'in-progress', ...(isNextAvailable ? { advisor_id: advisorId } : {}) }
+      : r))
   }
 
   const handleSeen = async (id) => {

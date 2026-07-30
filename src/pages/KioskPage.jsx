@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { supabasePublic } from '../supabase'
 
 const COUNTDOWN_SECONDS = 10
-const APPOINTMENT_TYPES = ['Scheduled Advising Appointment', 'Drop-In']
+const APPOINTMENT_TYPES = ['Scheduled Advising Appointment', 'Office Hours: Drop-In']
+const DROP_IN_TYPE = 'Office Hours: Drop-In'
+const NEXT_AVAILABLE = 'next-available'
 
 const inputClass =
   'w-full border rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[#003366] focus:border-transparent transition-colors'
@@ -88,6 +90,17 @@ export default function KioskPage() {
     if (collegeError) setCollegeError('')
   }
 
+  // When appointment type changes away from Drop-In, "Next Available" is no
+  // longer a valid advisor choice, so clear it.
+  const handleAppointmentTypeChange = (e) => {
+    const val = e.target.value
+    setAppointmentType(val)
+    if (appointmentError) setAppointmentError('')
+    if (val !== DROP_IN_TYPE && advisorId === NEXT_AVAILABLE) {
+      setAdvisorId('')
+    }
+  }
+
   // Countdown on success screen
   useEffect(() => {
     if (step !== 'success') return
@@ -150,7 +163,7 @@ export default function KioskPage() {
       const { error: dbError } = await supabasePublic.from('queue').insert([{
         student_name:     name.trim(),
         student_email:    email.trim().toLowerCase(),
-        advisor_id:       advisorId,
+        advisor_id:       advisorId === NEXT_AVAILABLE ? null : advisorId,
         college_id:       collegeId,
         appointment_type: appointmentType,
         status:           'waiting',
@@ -298,7 +311,26 @@ export default function KioskPage() {
             <FieldError msg={collegeError} />
           </div>
 
-          {/* 4. Advisor */}
+          {/* 4. Appointment Type */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Appointment Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={appointmentType}
+              onChange={handleAppointmentTypeChange}
+              onBlur={() => setAppointmentError(appointmentType ? '' : 'Please select an appointment type.')}
+              className={`${appointmentError ? inputError : inputNormal} bg-white`}
+            >
+              <option value="">Select an appointment type...</option>
+              {APPOINTMENT_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <FieldError msg={appointmentError} />
+          </div>
+
+          {/* 5. Advisor */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               Select Your Advisor <span className="text-red-500">*</span>
@@ -317,30 +349,14 @@ export default function KioskPage() {
                   ? 'No advisors available'
                   : 'Select your advisor...'}
               </option>
+              {appointmentType === DROP_IN_TYPE && collegeId && (
+                <option value={NEXT_AVAILABLE}>Next Available</option>
+              )}
               {filteredAdvisors.map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
             <FieldError msg={advisorError} />
-          </div>
-
-          {/* 5. Appointment Type */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Appointment Type <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={appointmentType}
-              onChange={(e) => { setAppointmentType(e.target.value); if (appointmentError) setAppointmentError('') }}
-              onBlur={() => setAppointmentError(appointmentType ? '' : 'Please select an appointment type.')}
-              className={`${appointmentError ? inputError : inputNormal} bg-white`}
-            >
-              <option value="">Select an appointment type...</option>
-              {APPOINTMENT_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-            <FieldError msg={appointmentError} />
           </div>
 
           {/* Load error */}

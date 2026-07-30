@@ -123,10 +123,12 @@ function LiveQueueTab({ now }) {
                   <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">{r.student_name}</td>
                   <td className="px-4 py-3 text-gray-500">{r.student_email}</td>
                   <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.college?.name ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.advisor?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                    {r.advisor_id === null ? 'Next Available' : (r.advisor?.name ?? '—')}
+                  </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                      r.appointment_type === 'Drop-In' ? 'bg-purple-100 text-purple-800' : 'bg-sky-100 text-sky-800'
+                      r.appointment_type === 'Office Hours: Drop-In' ? 'bg-purple-100 text-purple-800' : 'bg-sky-100 text-sky-800'
                     }`}>
                       {r.appointment_type ?? '—'}
                     </span>
