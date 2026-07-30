@@ -1,12 +1,12 @@
 # How the Kiosk Works: A Guide for Advisors
 
-The UAC Advising Kiosk is a walk-in check-in and queue system. A student sits down at the kiosk, tells it who they are and who they're here to see, and their name lands in that advisor's queue in real time. It replaces a paper sign-in sheet. It does not replace Starfish, Navigate, or any calendar system: nothing here books a real appointment or talks to another university system. It just tracks who's waiting and who's already been seen, today, in this office.
+The UAC Advising Kiosk is a walk-in check-in and queue system. A student tells it who they are and who they're here to see, and their name lands in that advisor's queue in real time.  It does not replace CRM Advise or any calendar system: nothing here books a real appointment or talks to another university system. It just tracks who's waiting and who's already been seen, today, in this office.
 
-The app has a handful of screens that matter to you: the kiosk itself (what students see), your queue (what you see when you're logged in), a couple of shared-visibility queue views for College Admins and Suite Admins, and, if you're an admin, a management dashboard for advisors and colleges.
+The app has a handful of screens that matter to you: the kiosk itself (what students see), your queue (what you see when you're logged in), a couple of shared-visibility queue views for College Admins and Suite Admins, and, for admins, a management dashboard for advisors and colleges.
 
 ## What the student sees
 
-A student walks up to the kiosk and fills out five fields, in this order: full name, USC email, college, appointment type (Scheduled Advising Appointment or Office Hours: Drop-In), and advisor. College comes before advisor because the advisor list is filtered to that college, and only to advisors currently marked active, so a student can't accidentally book you if you're inactive or not associated with that college.
+A student walks up to the kiosk and fills out five fields, in this order: full name, USC email, college, appointment type (Scheduled Advising Appointment or Office Hours: Drop-In), and advisor. College comes before advisor because the advisor list is filtered to that college, and only to advisors currently marked active, so a student can't accidentally select an advisor who is inactive or not associated with that college.
 
 If a student picks Office Hours: Drop-In, the advisor dropdown gets one extra choice at the top: **Next Available**. A student who takes it isn't checking in for a specific person. That check-in has no advisor attached until someone claims it, and it shows up on the queue of every active advisor in that college at once, plus the College Admin and Admin queue views. Whichever advisor clicks "Waiting" on it first claims it: it becomes theirs and disappears from everyone else's queue. Next Available only appears for drop-ins; a Scheduled Advising Appointment still requires picking a specific advisor by name.
 
@@ -14,7 +14,7 @@ Once they submit, they get a confirmation screen with a checkmark and a ten-seco
 
 ## What you see: your queue
 
-Log in at `/login` and you land on your queue. It shows students who picked you by name, plus any Next Available drop-ins waiting in your college that nobody has claimed yet. You will not see students who checked in for a named colleague, even one in your same college.
+Log in at `[/login](https://advising-kiosk.pages.dev/login)` and you land on your queue. It shows students who picked you by name, plus any Next Available drop-ins waiting in your college that nobody has claimed yet. You will not see students who checked in for a named colleague, even one in your same college.
 
 Each card shows the student's name, email, college, appointment type, a "Here to see: You" or "Here to see: Next Available" line, and a running wait timer. A Next Available card also carries a purple "Next Available" badge. New check-ins appear within a couple of seconds without you refreshing anything, and if your tab is open when it happens, you'll hear a two-tone chime and see a toast notification. Browsers block audio that isn't triggered by a click, so the very first chime of your session may not play until you've clicked somewhere on the page. After that it works normally. Keep the tab open if you want the chime and toast; the queue itself still updates in the background even if you're on another tab.
 
@@ -31,7 +31,7 @@ Marking someone "Seen" doesn't delete their record. It just takes them off the a
 
 Your login is your email and a password, both set up by an admin. When an admin adds you (individually or through the bulk CSV upload), your account is created with the default password `uackiosk`. Change it the first time you log in, from **Change Password** in the top nav. There's no self-service "forgot password" link on the login screen right now: if you get locked out, ask your kiosk admin to reset your account in Supabase directly.
 
-Where you land after signing in depends on your role and flags, checked in this order: full admins go to the admin dashboard, College Admins go to the College Queue, Suite Admins go to the Suite Queue, and everyone else goes to their own queue. If you hold more than one of these at once, or you're a full admin, the top nav grows extra tabs (My Queue, College Queue, Suite Queue, Admin) so you can jump between the views you have access to. A plain advisor only ever sees their own queue and no extra tabs.
+Where you land after signing in depends on your role and flags, checked in this order: full admins go to the admin dashboard, College Admins go to the College Queue, Suite Admins go to the Suite Queue, and everyone else goes to their own queue. If you hold more than one of these at once, or you're a full admin, the top nav grows extra tabs (My Queue, College Queue, Suite Queue, Admin) so you can jump between the views you have access to. An advisor only ever sees their own queue and no extra tabs.
 
 ## College Queue and Suite Queue
 
@@ -64,6 +64,4 @@ The admin dashboard has five tabs:
 
 ## What the kiosk doesn't do
 
-It's easy to assume this tool does more than it does. It doesn't send confirmation emails or texts to students, and it doesn't notify a student when you mark them seen. It doesn't check availability or prevent double-booking, since there's no real scheduling underneath it, just a first-come queue. It doesn't integrate with Starfish, Navigate, or the registrar. It doesn't print anything: the confirmation screen is on-screen only, gone as soon as the kiosk resets. And there's no reporting screen: every check-in is saved permanently, but no-shows, average wait times, or visit counts by month aren't available anywhere in the app. Pulling that kind of data means going into Supabase directly.
-
-If you need real appointment scheduling, advising notes, or reporting beyond "who checked in and when," that still lives in whatever system you were using before the kiosk.
+It's easy to assume this tool does more than it does. It doesn't send confirmation emails or texts to students, and it doesn't notify a student when you mark them seen. It doesn't check availability or prevent double-booking, since there's no real scheduling underneath it, just a first-come queue. It doesn't integrate with any other systems. It doesn't print anything: the confirmation screen is on-screen only, gone as soon as the kiosk resets. And there's no reporting screen: every check-in is saved permanently, but no-shows, average wait times, or visit counts by month aren't available anywhere in the app. Pulling that kind of data means going into Supabase directly.
