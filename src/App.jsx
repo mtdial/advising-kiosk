@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import KioskPage from './pages/KioskPage'
 import LoginPage from './pages/LoginPage'
+import SignPage from './pages/SignPage'
 import AdvisorPage from './pages/AdvisorPage'
 import AdminPage from './pages/AdminPage'
 import CollegeAdminPage from './pages/CollegeAdminPage'
@@ -15,6 +16,7 @@ export default function App() {
         <Routes>
           <Route path="/kiosk" element={<KioskPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/sign" element={<SignPage />} />
           <Route
             path="/advisor"
             element={
