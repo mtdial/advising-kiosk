@@ -744,20 +744,30 @@ export default function AdminPage() {
       <div className="max-w-6xl mx-auto px-4 py-8">
 
         {/* Tab bar */}
-        <div className="flex gap-1 bg-white rounded-xl shadow p-1 mb-8 flex-wrap">
-          {TABS.map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                activeTab === id
-                  ? 'bg-[#003366] text-white'
-                  : 'text-gray-600 hover:text-[#003366]'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-3 mb-8 flex-wrap">
+          <div className="flex gap-1 bg-white rounded-xl shadow p-1 flex-wrap">
+            {TABS.map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  activeTab === id
+                    ? 'bg-[#003366] text-white'
+                    : 'text-gray-600 hover:text-[#003366]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <a
+            href="/sign"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-semibold text-[#003366] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            🖨 Print Check-In Sign
+          </a>
         </div>
 
         {/* Tab content */}
