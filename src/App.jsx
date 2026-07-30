@@ -5,6 +5,8 @@ import KioskPage from './pages/KioskPage'
 import LoginPage from './pages/LoginPage'
 import AdvisorPage from './pages/AdvisorPage'
 import AdminPage from './pages/AdminPage'
+import CollegeAdminPage from './pages/CollegeAdminPage'
+import SuiteAdminPage from './pages/SuiteAdminPage'
 
 export default function App() {
   return (
@@ -26,6 +28,22 @@ export default function App() {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/college-admin"
+            element={
+              <ProtectedRoute requireFlag="isCollegeAdmin">
+                <CollegeAdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/suite-admin"
+            element={
+              <ProtectedRoute requireFlag="isSuiteAdmin">
+                <SuiteAdminPage />
               </ProtectedRoute>
             }
           />

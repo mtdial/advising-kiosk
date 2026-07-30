@@ -1,8 +1,9 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-export default function ProtectedRoute({ children, requiredRole }) {
-  const { user, role, loading } = useAuth()
+export default function ProtectedRoute({ children, requiredRole, requireFlag }) {
+  const auth = useAuth()
+  const { user, role, loading } = auth
 
   if (loading) {
     return (
@@ -17,6 +18,11 @@ export default function ProtectedRoute({ children, requiredRole }) {
   }
 
   if (requiredRole && role !== requiredRole) {
+    return <Navigate to="/advisor" replace />
+  }
+
+  // Full admins can see any flag-gated view; otherwise the user needs the flag itself.
+  if (requireFlag && !auth[requireFlag] && role !== 'admin') {
     return <Navigate to="/advisor" replace />
   }
 
