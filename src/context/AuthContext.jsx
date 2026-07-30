@@ -50,10 +50,17 @@ export function AuthProvider({ children }) {
       setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user?.email) {
-        applyProfile(await fetchAdvisorProfile(session.user.email))
+        // Defer: calling back into supabase (fetchAdvisorProfile needs the
+        // access token) from directly inside this callback can deadlock,
+        // since it runs while the auth client is still processing this same
+        // state change. See supabase-js onAuthStateChange docs.
+        const email = session.user.email
+        setTimeout(() => {
+          fetchAdvisorProfile(email).then(applyProfile)
+        }, 0)
       } else {
         clearProfile()
       }
