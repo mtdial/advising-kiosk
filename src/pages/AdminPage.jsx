@@ -53,17 +53,6 @@ function Toggle({ checked, onChange, disabled = false }) {
   )
 }
 
-// ── Toggle row (label + toggle inline) ───────────────────────────────────────
-
-function ToggleRow({ label, checked, onChange, disabled }) {
-  return (
-    <div className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-      <Toggle checked={checked} onChange={onChange} disabled={disabled} />
-    </div>
-  )
-}
-
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -123,7 +112,7 @@ function LiveQueueTab({ now }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                {['Student Name', 'Student Email', 'College', 'Major', 'Advisor', 'Appt Type', 'Wait Time', 'Status'].map((h) => (
+                {['Student Name', 'Student Email', 'College', 'Advisor', 'Appt Type', 'Wait Time', 'Status'].map((h) => (
                   <th key={h} className="px-4 py-3 text-gray-600 font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -134,7 +123,6 @@ function LiveQueueTab({ now }) {
                   <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">{r.student_name}</td>
                   <td className="px-4 py-3 text-gray-500">{r.student_email}</td>
                   <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.college?.name ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.major ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                     {r.advisor_id === null ? 'Next Available' : (r.advisor?.name ?? '—')}
                   </td>
@@ -178,31 +166,16 @@ async function callCreateAdvisor({ name, email, college_id, role }) {
   return data
 }
 
-// ── Advisor toggle fields ─────────────────────────────────────────────────────
-
-const ADVISOR_TOGGLES = [
-  { key: 'is_active',       label: 'Active' },
-  { key: 'uac_suite',       label: 'UAC Suite' },
-  { key: 'uac_suite_admin', label: 'UAC Suite Admin' },
-  { key: 'ea_suite',        label: 'EA Suite' },
-  { key: 'ea_suite_admin',  label: 'EA Suite Admin' },
-]
-
 // ── TAB 2 — Add Advisor ───────────────────────────────────────────────────────
 
 function AddAdvisorTab({ colleges }) {
-  const blank = {
-    name: '', email: '', college_id: '', role: 'advisor',
-    is_active: true, uac_suite: false, uac_suite_admin: false,
-    ea_suite: false, ea_suite_admin: false,
-  }
+  const blank = { name: '', email: '', college_id: '', role: 'advisor' }
   const [form, setForm]       = useState(blank)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError]     = useState('')
 
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setError(''); setSuccess('') }
-  const tog = (k) => () => { setForm((f) => ({ ...f, [k]: !f[k] })); setError(''); setSuccess('') }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -210,28 +183,12 @@ function AddAdvisorTab({ colleges }) {
     if (!form.name.trim() || !form.email.trim()) { setError('Name and email are required.'); return }
     setLoading(true)
     try {
-      const normalizedEmail = form.email.trim().toLowerCase()
       await callCreateAdvisor({
         name:       form.name.trim(),
-        email:      normalizedEmail,
+        email:      form.email.trim().toLowerCase(),
         college_id: form.college_id || null,
         role:       form.role,
       })
-      // Edge function returns { success: true } without the row id, so look it up by email
-      const { data: newAdvisor } = await supabase
-        .from('advisors')
-        .select('id')
-        .eq('email', normalizedEmail)
-        .maybeSingle()
-      if (newAdvisor?.id) {
-        await supabase.from('advisors').update({
-          is_active:       form.is_active,
-          uac_suite:       form.uac_suite,
-          uac_suite_admin: form.uac_suite_admin,
-          ea_suite:        form.ea_suite,
-          ea_suite_admin:  form.ea_suite_admin,
-        }).eq('id', newAdvisor.id)
-      }
       setSuccess(`Advisor added! They can now log in with the default password.`)
       setForm(blank)
     } catch (err) {
@@ -271,21 +228,6 @@ function AddAdvisorTab({ colleges }) {
             </select>
           </div>
 
-          {/* Toggles */}
-          <div>
-            <p className="text-sm font-semibold text-gray-700 mb-1">Access & Status</p>
-            <div className="border border-gray-200 rounded-lg px-3">
-              {ADVISOR_TOGGLES.map(({ key, label }) => (
-                <ToggleRow
-                  key={key}
-                  label={label}
-                  checked={!!form[key]}
-                  onChange={tog(key)}
-                />
-              ))}
-            </div>
-          </div>
-
           {error   && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
           {success && <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{success}</p>}
 
@@ -305,11 +247,11 @@ function AddAdvisorTab({ colleges }) {
 // ── TAB 3 — Bulk Upload ───────────────────────────────────────────────────────
 
 function BulkUploadTab({ colleges }) {
-  const [dragging, setDragging]     = useState(false)
+  const [dragging, setDragging]   = useState(false)
   const [processing, setProcessing] = useState(false)
-  const [progress, setProgress]     = useState({ done: 0, total: 0 })
-  const [result, setResult]         = useState(null)
-  const inputRef                    = useRef(null)
+  const [progress, setProgress]   = useState({ done: 0, total: 0 })
+  const [result, setResult]       = useState(null) // { added, skipped: [{row, reason}] }
+  const inputRef                  = useRef(null)
 
   const processFile = async (file) => {
     if (!file || !file.name.endsWith('.csv')) {
@@ -324,6 +266,7 @@ function BulkUploadTab({ colleges }) {
       const rows = parseCSV(text)
       if (rows.length === 0) throw new Error('No data rows found in CSV.')
 
+      // Fetch existing emails to detect duplicates before calling the function
       const { data: existing } = await supabase.from('advisors').select('email')
       const existingEmails = new Set((existing ?? []).map((a) => a.email.toLowerCase()))
 
@@ -331,10 +274,11 @@ function BulkUploadTab({ colleges }) {
       const skipped   = []
 
       for (const row of rows) {
-        const name        = row.name?.trim()
-        const email       = row.email?.trim().toLowerCase()
+        const name  = row.name?.trim()
+        const email = row.email?.trim().toLowerCase()
+        // accept "college_name" or "college" as the column header
         const collegeName = (row.college_name || row.college)?.trim()
-        const role        = row.role?.trim() || 'advisor'
+        const role  = row.role?.trim() || 'advisor'
 
         if (!name || !email) {
           skipped.push({ row: email || name || '(empty)', reason: 'Missing name or email' })
@@ -356,9 +300,10 @@ function BulkUploadTab({ colleges }) {
         }
 
         toProcess.push({ name, email, college_id, role })
-        existingEmails.add(email)
+        existingEmails.add(email) // prevent dupes within the same CSV
       }
 
+      // Process in batches of 5 to stay within rate limits while being fast
       const BATCH = 5
       let added = 0
       setProgress({ done: 0, total: toProcess.length })
@@ -367,8 +312,11 @@ function BulkUploadTab({ colleges }) {
         const batch = toProcess.slice(i, i + BATCH)
         const results = await Promise.allSettled(batch.map((a) => callCreateAdvisor(a)))
         results.forEach((r, idx) => {
-          if (r.status === 'fulfilled') { added++ }
-          else { skipped.push({ row: batch[idx].email, reason: r.reason?.message ?? 'Unknown error' }) }
+          if (r.status === 'fulfilled') {
+            added++
+          } else {
+            skipped.push({ row: batch[idx].email, reason: r.reason?.message ?? 'Unknown error' })
+          }
         })
         setProgress({ done: Math.min(i + BATCH, toProcess.length), total: toProcess.length })
       }
@@ -392,6 +340,7 @@ function BulkUploadTab({ colleges }) {
     <div className="max-w-2xl">
       <h2 className="text-xl font-bold text-[#003366] mb-5">Bulk Upload Advisors</h2>
 
+      {/* Format example */}
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-5">
         <p className="text-sm font-semibold text-gray-700 mb-2">Expected CSV format:</p>
         <pre className="text-xs text-gray-600 font-mono leading-relaxed">
@@ -405,13 +354,16 @@ John Doe,jdoe@sc.edu,College of Engineering and Computing,admin`}
         </p>
       </div>
 
+      {/* Drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         onClick={() => !processing && inputRef.current?.click()}
         className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
-          dragging ? 'border-[#003366] bg-blue-50' : 'border-gray-300 hover:border-[#003366] hover:bg-gray-50'
+          dragging
+            ? 'border-[#003366] bg-blue-50'
+            : 'border-gray-300 hover:border-[#003366] hover:bg-gray-50'
         } ${processing ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <input
@@ -425,12 +377,15 @@ John Doe,jdoe@sc.edu,College of Engineering and Computing,admin`}
         <div className="text-4xl mb-3">📂</div>
         <p className="font-semibold text-gray-700">
           {processing
-            ? progress.total > 0 ? `Processing… ${progress.done} / ${progress.total}` : 'Processing…'
+            ? progress.total > 0
+              ? `Processing… ${progress.done} / ${progress.total}`
+              : 'Processing…'
             : 'Drop a CSV file here or click to browse'}
         </p>
         <p className="text-sm text-gray-400 mt-1">.csv files only</p>
       </div>
 
+      {/* Result */}
       {result && (
         <div className="mt-5">
           {result.error ? (
@@ -469,101 +424,59 @@ John Doe,jdoe@sc.edu,College of Engineering and Computing,admin`}
 // ── Edit Advisor Modal ────────────────────────────────────────────────────────
 
 function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
-  const [form, setForm] = useState({
+  const [form, setForm]     = useState({
     name:            advisor.name,
     email:           advisor.email,
     college_id:      advisor.college_id ?? '',
     role:            advisor.role,
     is_active:       advisor.is_active ?? true,
-    uac_suite:       advisor.uac_suite ?? false,
-    uac_suite_admin: advisor.uac_suite_admin ?? false,
+    is_college_admin: advisor.is_college_admin ?? false,
+    is_uac_suite:    advisor.is_uac_suite ?? false,
+    is_suite_admin:  advisor.is_suite_admin ?? false,
     ea_suite:        advisor.ea_suite ?? false,
     ea_suite_admin:  advisor.ea_suite_admin ?? false,
   })
-  const [saving, setSaving]                         = useState(false)
-  const [error, setError]                           = useState('')
-  const [majors, setMajors]                         = useState([])
-  const [loadingMajors, setLoadingMajors]           = useState(false)
-  const [selectedMajorIds, setSelectedMajorIds]     = useState(new Set())
-
-  // Load majors for the current college + existing advisor assignments
-  useEffect(() => {
-    if (!form.college_id) {
-      setMajors([])
-      setSelectedMajorIds(new Set())
-      return
-    }
-    let cancelled = false
-    setLoadingMajors(true)
-    Promise.all([
-      supabase
-        .from('majors')
-        .select('id, name')
-        .eq('college_id', form.college_id)
-        .eq('is_active', true)
-        .order('name', { ascending: true }),
-      supabase
-        .from('advisor_majors')
-        .select('major_id')
-        .eq('advisor_id', advisor.id),
-    ]).then(([{ data: majorData }, { data: assignData }]) => {
-      if (cancelled) return
-      setMajors(majorData ?? [])
-      setSelectedMajorIds(new Set((assignData ?? []).map((r) => r.major_id)))
-      setLoadingMajors(false)
-    })
-    return () => { cancelled = true }
-  }, [form.college_id, advisor.id])
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
 
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setError('') }
   const tog = (k) => () => { setForm((f) => ({ ...f, [k]: !f[k] })) }
-
-  const toggleMajor = (majorId) => {
-    setSelectedMajorIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(majorId)) next.delete(majorId)
-      else next.add(majorId)
-      return next
-    })
-  }
 
   const handleSave = async (e) => {
     e.preventDefault()
     if (!form.name.trim() || !form.email.trim()) { setError('Name and email are required.'); return }
     setSaving(true)
     const { error: dbErr } = await supabase.from('advisors').update({
-      name:            form.name.trim(),
-      email:           form.email.trim().toLowerCase(),
-      college_id:      form.college_id || null,
-      role:            form.role,
-      is_active:       form.is_active,
-      uac_suite:       form.uac_suite,
-      uac_suite_admin: form.uac_suite_admin,
-      ea_suite:        form.ea_suite,
-      ea_suite_admin:  form.ea_suite_admin,
+      name:             form.name.trim(),
+      email:            form.email.trim().toLowerCase(),
+      college_id:       form.college_id || null,
+      role:             form.role,
+      is_active:        form.is_active,
+      is_college_admin: form.is_college_admin,
+      is_uac_suite:     form.is_uac_suite,
+      is_suite_admin:   form.is_suite_admin,
+      ea_suite:         form.ea_suite,
+      ea_suite_admin:   form.ea_suite_admin,
     }).eq('id', advisor.id)
+    setSaving(false)
     if (dbErr) {
-      setSaving(false)
       setError(dbErr.code === '23505' ? 'That email is already in use.' : dbErr.message)
       return
     }
-    // Sync advisor_majors: delete all existing, then re-insert checked ones
-    await supabase.from('advisor_majors').delete().eq('advisor_id', advisor.id)
-    if (selectedMajorIds.size > 0) {
-      await supabase.from('advisor_majors').insert(
-        [...selectedMajorIds].map((major_id) => ({ advisor_id: advisor.id, major_id }))
-      )
-    }
-    setSaving(false)
-    onSaved({
-      ...advisor,
-      ...form,
-      college_id: form.college_id || null,
-      college: colleges.find((c) => c.id === form.college_id) ?? null,
-    })
+    onSaved({ ...advisor, ...form, college_id: form.college_id || null,
+      college: colleges.find((c) => c.id === form.college_id) ?? null })
   }
 
   const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#003366] focus:border-transparent'
+
+  const TOGGLES = [
+    { key: 'is_active',        label: 'Active' },
+    { key: 'is_college_admin', label: 'College Admin' },
+    { key: 'is_uac_suite',     label: 'UAC Suite' },
+    { key: 'is_suite_admin',   label: 'Suite Admin' },
+    { key: 'ea_suite',         label: 'EA Suite' },
+    { key: 'ea_suite_admin',   label: 'EA Suite Admin' },
+  ]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
@@ -595,53 +508,14 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
               <option value="admin">Admin</option>
             </select>
           </div>
-
-          {/* Toggles */}
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-1">Access & Status</p>
             <div className="border border-gray-200 rounded-lg px-3">
-              {ADVISOR_TOGGLES.map(({ key, label }) => (
-                <ToggleRow
-                  key={key}
-                  label={label}
-                  checked={!!form[key]}
-                  onChange={tog(key)}
-                  disabled={saving}
-                />
+              {TOGGLES.map(({ key, label }) => (
+                <ToggleRow key={key} label={label} checked={!!form[key]} onChange={tog(key)} disabled={saving} />
               ))}
             </div>
           </div>
-
-          {/* Majors checklist */}
-          {form.college_id && (
-            <div>
-              <p className="text-sm font-semibold text-gray-700 mb-1">
-                Assigned Majors
-                <span className="ml-1.5 text-xs font-normal text-gray-400">(leave all unchecked = advises all majors)</span>
-              </p>
-              {loadingMajors ? (
-                <p className="text-sm text-gray-400 py-2">Loading majors…</p>
-              ) : majors.length === 0 ? (
-                <p className="text-sm text-gray-400 py-2">No majors set up for this college yet.</p>
-              ) : (
-                <div className="border border-gray-200 rounded-lg px-3 py-2 max-h-48 overflow-y-auto space-y-1">
-                  {majors.map((m) => (
-                    <label key={m.id} className="flex items-center gap-2.5 py-1 cursor-pointer hover:bg-gray-50 rounded px-1">
-                      <input
-                        type="checkbox"
-                        checked={selectedMajorIds.has(m.id)}
-                        onChange={() => toggleMajor(m.id)}
-                        disabled={saving}
-                        className="w-4 h-4 accent-[#003366] cursor-pointer"
-                      />
-                      <span className="text-sm text-gray-700">{m.name}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
@@ -659,65 +533,59 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
 
 // ── TAB 4 — Manage Advisors ───────────────────────────────────────────────────
 
-const STATUS_FILTERS = [
-  { value: 'all',      label: 'All' },
-  { value: 'active',   label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-]
-
 function ManageAdvisorsTab({ colleges }) {
-  const [advisors, setAdvisors]   = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [editing, setEditing]     = useState(null)
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [advisors, setAdvisors] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [editing, setEditing]   = useState(null)
+  const [sortKey, setSortKey]   = useState('name')
+  const [sortDir, setSortDir]   = useState('asc')
 
   const fetchAdvisors = useCallback(async () => {
     const { data } = await supabase
       .from('advisors')
       .select('*, college:colleges(name)')
-      .order('name', { ascending: true })
-    const sorted = (data ?? []).sort((a, b) => {
-      const ca = a.college?.name ?? ''
-      const cb = b.college?.name ?? ''
-      if (ca !== cb) return ca.localeCompare(cb)
-      return a.name.localeCompare(b.name)
-    })
-    setAdvisors(sorted)
+    setAdvisors(data ?? [])
     setLoading(false)
   }, [])
 
   useEffect(() => { fetchAdvisors() }, [fetchAdvisors])
 
-  const [toggling, setToggling] = useState(null)
-
-  const toggle = async (id, current, field = 'is_active') => {
-    setToggling(`${id}:${field}`)
-    await supabase.from('advisors').update({ [field]: !current }).eq('id', id)
-    setAdvisors((prev) => prev.map((a) => a.id === id ? { ...a, [field]: !current } : a))
-    setToggling(null)
-  }
-
-
   const handleSaved = (updated) => {
-    setAdvisors((prev) => {
-      const next = prev.map((a) => a.id === updated.id ? { ...a, ...updated } : a)
-      return next.sort((a, b) => {
-        const ca = a.college?.name ?? ''
-        const cb = b.college?.name ?? ''
-        if (ca !== cb) return ca.localeCompare(cb)
-        return a.name.localeCompare(b.name)
-      })
-    })
+    setAdvisors((prev) => prev.map((a) => a.id === updated.id ? { ...a, ...updated } : a))
     setEditing(null)
   }
 
-  const visible = advisors.filter((a) => {
-    if (statusFilter === 'active')   return a.is_active
-    if (statusFilter === 'inactive') return !a.is_active
-    return true
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const sorted = [...advisors].sort((a, b) => {
+    let av = '', bv = ''
+    if (sortKey === 'name')    { av = a.name ?? ''; bv = b.name ?? '' }
+    if (sortKey === 'college') { av = a.college?.name ?? ''; bv = b.college?.name ?? '' }
+    if (sortKey === 'role')    { av = a.role ?? ''; bv = b.role ?? '' }
+    const cmp = av.localeCompare(bv)
+    return sortDir === 'asc' ? cmp : -cmp
   })
 
   if (loading) return <div className="py-20 text-center text-gray-400">Loading advisors…</div>
+
+  const SortArrow = ({ col }) => (
+    <span className={`ml-1 text-xs ${sortKey === col ? 'text-[#003366]' : 'text-gray-300'}`}>
+      {sortKey === col ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+    </span>
+  )
+
+  const sortTh = (label, key) => (
+    <th
+      key={key}
+      onClick={() => toggleSort(key)}
+      className="px-5 py-3 text-gray-600 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-[#003366] hover:bg-gray-100 transition-colors"
+    >
+      {label}<SortArrow col={key} />
+    </th>
+  )
 
   return (
     <div>
@@ -730,91 +598,44 @@ function ManageAdvisorsTab({ colleges }) {
         />
       )}
 
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-xl font-bold text-[#003366]">Manage Advisors</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {visible.length} {statusFilter === 'all' ? 'total' : statusFilter} advisor{visible.length !== 1 ? 's' : ''}
-          </p>
+          <p className="text-sm text-gray-500 mt-0.5">{advisors.length} total advisors</p>
         </div>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Status filter */}
-          <div className="flex bg-gray-100 rounded-lg p-0.5">
-            {STATUS_FILTERS.map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => setStatusFilter(value)}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                  statusFilter === value
-                    ? 'bg-white text-[#003366] shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <button onClick={fetchAdvisors} className="text-sm border border-[#003366] text-[#003366] px-3 py-1.5 rounded-lg hover:bg-[#003366] hover:text-white transition-colors">
-            Refresh
-          </button>
-        </div>
+        <button onClick={fetchAdvisors} className="text-sm border border-[#003366] text-[#003366] px-3 py-1.5 rounded-lg hover:bg-[#003366] hover:text-white transition-colors">
+          Refresh
+        </button>
       </div>
 
-      {visible.length === 0 ? (
-        <div className="bg-white rounded-xl shadow p-12 text-center text-gray-400">
-          {statusFilter === 'all' ? 'No advisors found.' : `No ${statusFilter} advisors.`}
-        </div>
+      {advisors.length === 0 ? (
+        <div className="bg-white rounded-xl shadow p-12 text-center text-gray-400">No advisors found.</div>
       ) : (
         <div className="bg-white rounded-xl shadow overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                {['Name', 'Email', 'College', 'Role', 'Status', 'College Admin', 'UAC Suite', 'Suite Admin', ''].map((h) => (
-                  <th key={h} className="px-5 py-3 text-gray-600 font-semibold whitespace-nowrap">{h}</th>
-                ))}
+                {sortTh('Name', 'name')}
+                <th className="px-5 py-3 text-gray-600 font-semibold whitespace-nowrap">Email</th>
+                {sortTh('College', 'college')}
+                {sortTh('Role', 'role')}
+                <th className="px-5 py-3 text-gray-600 font-semibold whitespace-nowrap">Status</th>
+                <th className="px-5 py-3 text-gray-600 font-semibold whitespace-nowrap"></th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((a, i) => (
+              {sorted.map((a, i) => (
                 <tr key={a.id} className={`border-b border-gray-100 ${i % 2 ? 'bg-gray-50' : ''}`}>
                   <td className="px-5 py-3 font-medium text-gray-800">{a.name}</td>
                   <td className="px-5 py-3 text-gray-500">{a.email}</td>
                   <td className="px-5 py-3 text-gray-600">{a.college?.name ?? '—'}</td>
                   <td className="px-5 py-3 text-gray-500 capitalize">{a.role}</td>
                   <td className="px-5 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <Toggle
-                        checked={a.is_active}
-                        onChange={() => toggle(a.id, a.is_active, 'is_active')}
-                        disabled={toggling === `${a.id}:is_active`}
-                      />
-                      <span className={`text-xs font-semibold ${a.is_active ? 'text-green-700' : 'text-gray-400'}`}>
-                        {a.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3">
-                    <Toggle
-                      checked={!!a.is_college_admin}
-                      onChange={() => toggle(a.id, a.is_college_admin, 'is_college_admin')}
-                      disabled={toggling === `${a.id}:is_college_admin`}
-                    />
-                  </td>
-                  <td className="px-5 py-3">
-                    <Toggle
-                      checked={!!a.is_uac_suite}
-                      onChange={() => toggle(a.id, a.is_uac_suite, 'is_uac_suite')}
-                      disabled={toggling === `${a.id}:is_uac_suite`}
-                    />
-                  </td>
-                  <td className="px-5 py-3">
-                    <Toggle
-                      checked={!!a.is_suite_admin}
-                      onChange={() => toggle(a.id, a.is_suite_admin, 'is_suite_admin')}
-                      disabled={toggling === `${a.id}:is_suite_admin`}
-                    />
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                      a.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
+                    }`}>
+                      {a.is_active ? 'Active' : 'Inactive'}
+                    </span>
                   </td>
                   <td className="px-5 py-3">
                     <button
@@ -839,7 +660,7 @@ function ManageAdvisorsTab({ colleges }) {
 function ManageCollegesTab() {
   const [colleges, setColleges] = useState([])
   const [loading, setLoading]   = useState(true)
-  const [toggling, setToggling] = useState(null) // { id, field }
+  const [toggling, setToggling] = useState(null)
 
   const fetchColleges = useCallback(async () => {
     const { data } = await supabase
@@ -852,24 +673,22 @@ function ManageCollegesTab() {
 
   useEffect(() => { fetchColleges() }, [fetchColleges])
 
-  const toggle = async (id, field, current) => {
-    setToggling({ id, field })
-    await supabase.from('colleges').update({ [field]: !current }).eq('id', id)
-    setColleges((prev) => prev.map((c) => c.id === id ? { ...c, [field]: !current } : c))
+  const toggle = async (id, current) => {
+    setToggling(id)
+    await supabase.from('colleges').update({ is_active: !current }).eq('id', id)
+    setColleges((prev) => prev.map((c) => c.id === id ? { ...c, is_active: !current } : c))
     setToggling(null)
   }
-
-  const isToggling = (id, field) => toggling?.id === id && toggling?.field === field
 
   if (loading) return <div className="py-20 text-center text-gray-400">Loading colleges…</div>
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-xl font-bold text-[#003366]">Manage Colleges</h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Active colleges appear in the kiosk dropdown. Toggle "Show Major Drop-Down" per college.
+            Active colleges appear in the kiosk dropdown. Add or remove colleges directly in Supabase.
           </p>
         </div>
         <button onClick={fetchColleges} className="text-sm border border-[#003366] text-[#003366] px-3 py-1.5 rounded-lg hover:bg-[#003366] hover:text-white transition-colors">
@@ -882,8 +701,7 @@ function ManageCollegesTab() {
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-left">
               <th className="px-5 py-3 text-gray-600 font-semibold">College Name</th>
-              <th className="px-5 py-3 text-gray-600 font-semibold">Active</th>
-              <th className="px-5 py-3 text-gray-600 font-semibold">Show Major Drop-Down on Kiosk</th>
+              <th className="px-5 py-3 text-gray-600 font-semibold">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -894,23 +712,11 @@ function ManageCollegesTab() {
                   <div className="flex items-center gap-2.5">
                     <Toggle
                       checked={c.is_active}
-                      onChange={() => toggle(c.id, 'is_active', c.is_active)}
-                      disabled={isToggling(c.id, 'is_active')}
+                      onChange={() => toggle(c.id, c.is_active)}
+                      disabled={toggling === c.id}
                     />
                     <span className={`text-xs font-semibold ${c.is_active ? 'text-green-700' : 'text-gray-400'}`}>
-                      {c.is_active ? 'Yes' : 'No'}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <Toggle
-                      checked={!!c.show_major_dropdown}
-                      onChange={() => toggle(c.id, 'show_major_dropdown', !!c.show_major_dropdown)}
-                      disabled={isToggling(c.id, 'show_major_dropdown')}
-                    />
-                    <span className={`text-xs font-semibold ${c.show_major_dropdown ? 'text-[#003366]' : 'text-gray-400'}`}>
-                      {c.show_major_dropdown ? 'Yes' : 'No'}
+                      {c.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
                 </td>
@@ -931,11 +737,13 @@ export default function AdminPage() {
   const [colleges, setColleges]   = useState([])
   const [now, setNow]             = useState(Date.now())
 
+  // Live timer for wait times
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [])
 
+  // Load colleges once — shared by Add Advisor and Bulk Upload tabs
   useEffect(() => {
     supabase
       .from('colleges')
