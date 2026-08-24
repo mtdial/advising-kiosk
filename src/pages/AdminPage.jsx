@@ -53,6 +53,17 @@ function Toggle({ checked, onChange, disabled = false }) {
   )
 }
 
+// ── Toggle row (label + switch) ───────────────────────────────────────────────
+
+function ToggleRow({ label, checked, onChange, disabled = false }) {
+  return (
+    <div className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
+      <span className="text-sm text-gray-700">{label}</span>
+      <Toggle checked={checked} onChange={onChange} disabled={disabled} />
+    </div>
+  )
+}
+
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -673,17 +684,24 @@ function ManageCollegesTab() {
 
   useEffect(() => { fetchColleges() }, [fetchColleges])
 
-  const toggle = async (id, current) => {
-    setToggling(id)
+  const toggleActive = async (id, current) => {
+    setToggling(id + '_active')
     await supabase.from('colleges').update({ is_active: !current }).eq('id', id)
     setColleges((prev) => prev.map((c) => c.id === id ? { ...c, is_active: !current } : c))
+    setToggling(null)
+  }
+
+  const toggleMajorDropdown = async (id, current) => {
+    setToggling(id + '_major')
+    await supabase.from('colleges').update({ show_major_dropdown: !current }).eq('id', id)
+    setColleges((prev) => prev.map((c) => c.id === id ? { ...c, show_major_dropdown: !current } : c))
     setToggling(null)
   }
 
   if (loading) return <div className="py-20 text-center text-gray-400">Loading colleges…</div>
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-xl font-bold text-[#003366]">Manage Colleges</h2>
@@ -701,7 +719,8 @@ function ManageCollegesTab() {
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-left">
               <th className="px-5 py-3 text-gray-600 font-semibold">College Name</th>
-              <th className="px-5 py-3 text-gray-600 font-semibold">Status</th>
+              <th className="px-5 py-3 text-gray-600 font-semibold">Active</th>
+              <th className="px-5 py-3 text-gray-600 font-semibold">Require Major</th>
             </tr>
           </thead>
           <tbody>
@@ -712,11 +731,23 @@ function ManageCollegesTab() {
                   <div className="flex items-center gap-2.5">
                     <Toggle
                       checked={c.is_active}
-                      onChange={() => toggle(c.id, c.is_active)}
-                      disabled={toggling === c.id}
+                      onChange={() => toggleActive(c.id, c.is_active)}
+                      disabled={toggling === c.id + '_active'}
                     />
                     <span className={`text-xs font-semibold ${c.is_active ? 'text-green-700' : 'text-gray-400'}`}>
                       {c.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <Toggle
+                      checked={!!c.show_major_dropdown}
+                      onChange={() => toggleMajorDropdown(c.id, c.show_major_dropdown)}
+                      disabled={toggling === c.id + '_major'}
+                    />
+                    <span className={`text-xs font-semibold ${c.show_major_dropdown ? 'text-blue-700' : 'text-gray-400'}`}>
+                      {c.show_major_dropdown ? 'On' : 'Off'}
                     </span>
                   </div>
                 </td>
