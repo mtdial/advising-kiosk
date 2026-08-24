@@ -4,11 +4,13 @@ import { supabase } from '../supabase'
 import NavBar from '../components/NavBar'
 
 // ── Audio chime ───────────────────────────────────────────────────────────────
+// Louder, 3-tone ascending burst (C5 → E5 → G5). Single play, no repeat.
 function playChime() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     ctx.resume()
     const master = ctx.createGain()
+    master.gain.value = 0.8          // was 1.0 implicit; now explicitly loud
     master.connect(ctx.destination)
 
     function tone(freq, start, duration) {
@@ -18,18 +20,72 @@ function playChime() {
       osc.frequency.value = freq
       osc.connect(gain)
       gain.connect(master)
-      gain.gain.setValueAtTime(0.28, start)
+      gain.gain.setValueAtTime(0.6, start)
       gain.gain.exponentialRampToValueAtTime(0.001, start + duration)
       osc.start(start)
       osc.stop(start + duration)
     }
 
-    tone(880,  ctx.currentTime,        0.3)
-    tone(1108, ctx.currentTime + 0.3,  0.4)
-    setTimeout(() => ctx.close(), 1200)
+    const t = ctx.currentTime
+    tone(523, t,        0.25)   // C5
+    tone(659, t + 0.22, 0.25)   // E5
+    tone(784, t + 0.44, 0.45)   // G5 — sustained tail
+    setTimeout(() => ctx.close(), 1600)
   } catch {
     // audio not available — silently ignore
   }
+}
+
+// ── Browser push notification ─────────────────────────────────────────────────
+function sendPushNotification(name, type) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return
+  new Notification('New Student Check-In 🔔', {
+    body: `${name} (${type}) is waiting to see you.`,
+    icon: '/favicon.svg',
+    badge: '/favicon.svg',
+    tag: 'advisor-checkin',      // replaces previous if still showing
+    renotify: true,              // still plays sound even if same tag
+  })
+}
+
+// ── Tab title flash ───────────────────────────────────────────────────────────
+const BASE_TITLE = 'Your Queue'
+
+function useTabFlash() {
+  const flashRef = useRef(null)
+
+  const startFlash = useCallback(() => {
+    if (flashRef.current) return   // already flashing
+    let toggle = true
+    flashRef.current = setInterval(() => {
+      document.title = toggle ? '🔔 New Check-In!' : BASE_TITLE
+      toggle = !toggle
+    }, 800)
+  }, [])
+
+  const stopFlash = useCallback(() => {
+    if (flashRef.current) {
+      clearInterval(flashRef.current)
+      flashRef.current = null
+    }
+    document.title = BASE_TITLE
+  }, [])
+
+  // Stop flashing the moment the advisor focuses the tab
+  useEffect(() => {
+    const onVisible = () => { if (!document.hidden) stopFlash() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', stopFlash)
+    // Set base title on mount; restore on unmount
+    document.title = BASE_TITLE
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', stopFlash)
+      document.title = BASE_TITLE
+    }
+  }, [stopFlash])
+
+  return { startFlash, stopFlash }
 }
 
 // ── Wait timer ────────────────────────────────────────────────────────────────
@@ -49,7 +105,7 @@ function ToastList({ toasts }) {
           key={t.id}
           className="bg-[#FFB300] text-[#003366] text-sm px-4 py-3 rounded-xl shadow-xl flex items-start gap-2 max-w-xs animate-fade-in"
         >
-          <span className="text-[#FFB300] mt-0.5">🔔</span>
+          <span className="mt-0.5">🔔</span>
           <span>{t.message}</span>
         </div>
       ))}
@@ -167,6 +223,15 @@ export default function AdvisorPage() {
   const [toasts, setToasts]   = useState([])
   const hasLoaded             = useRef(false)
 
+  const { startFlash } = useTabFlash()
+
+  // ── Request push-notification permission once on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [])
+
   // ── Tick every second for live wait timers
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
@@ -235,10 +300,12 @@ export default function AdvisorPage() {
             isForThisAdvisor &&
             hasLoaded.current
           ) {
+            const name = payload.new.student_name
+            const type = payload.new.appointment_type ?? 'Drop-In'
             playChime()
-            addToast(
-              `New check-in: ${payload.new.student_name} (${payload.new.appointment_type ?? 'Office Hours: Drop-In'})`
-            )
+            sendPushNotification(name, type)
+            startFlash()
+            addToast(`New check-in: ${name} (${type})`)
           }
           fetchQueue()
         }
@@ -249,7 +316,7 @@ export default function AdvisorPage() {
       clearInterval(poll)
       supabase.removeChannel(channel)
     }
-  }, [advisorId, collegeId, fetchQueue, addToast])
+  }, [advisorId, collegeId, fetchQueue, addToast, startFlash])
 
   // ── Status update helpers
 
@@ -281,7 +348,6 @@ export default function AdvisorPage() {
       .from('queue')
       .update({ status: 'seen', seen_at: new Date().toISOString() })
       .eq('id', id)
-    // remove immediately from view
     setQueue((prev) => prev.filter((r) => r.id !== id))
   }
 
