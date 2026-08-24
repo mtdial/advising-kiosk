@@ -28,39 +28,70 @@ export default function KioskPage() {
   const countdownRef = useRef(null)
 
   // Reference data
-  const [colleges, setColleges]             = useState([])
-  const [allAdvisors, setAllAdvisors]       = useState([])
-  const [loadingOptions, setLoadingOptions] = useState(true)
-  const [loadError, setLoadError]           = useState('') // surfaced if Supabase fails to load options
+  const [colleges, setColleges]                 = useState([])
+  const [allAdvisors, setAllAdvisors]           = useState([])
+  const [allMajors, setAllMajors]               = useState([])       // {id, name, college_id}
+  const [allAdvisorMajors, setAllAdvisorMajors] = useState([])       // {advisor_id, major_id}
+  const [loadingOptions, setLoadingOptions]     = useState(true)
+  const [loadError, setLoadError]               = useState('')
 
   // Form values
-  const [name, setName]                   = useState('')
-  const [email, setEmail]                 = useState('')
-  const [collegeId, setCollegeId]         = useState('')
-  const [advisorId, setAdvisorId]         = useState('')
+  const [name, setName]                       = useState('')
+  const [email, setEmail]                     = useState('')
+  const [collegeId, setCollegeId]             = useState('')
+  const [majorId, setMajorId]                 = useState('')
+  const [advisorId, setAdvisorId]             = useState('')
   const [appointmentType, setAppointmentType] = useState('')
 
   // Field errors
   const [nameError, setNameError]               = useState('')
   const [emailError, setEmailError]             = useState('')
   const [collegeError, setCollegeError]         = useState('')
+  const [majorError, setMajorError]             = useState('')
   const [advisorError, setAdvisorError]         = useState('')
   const [appointmentError, setAppointmentError] = useState('')
 
   const [checkedInName, setCheckedInName] = useState('')
 
-  // Advisors filtered by the selected college
-  const filteredAdvisors = collegeId
-    ? allAdvisors.filter((a) => a.college_id === collegeId)
+  // Derived: selected college object (for show_major_dropdown flag)
+  const selectedCollege = colleges.find((c) => c.id === collegeId) ?? null
+  const showMajorDropdown = !!selectedCollege?.show_major_dropdown
+
+  // Majors filtered by the selected college
+  const filteredMajors = collegeId
+    ? allMajors.filter((m) => m.college_id === collegeId)
     : []
+
+  // Advisors filtered by college, then by major when dropdown is active
+  const filteredAdvisors = (() => {
+    if (!collegeId) return []
+    const byCollege = allAdvisors.filter((a) => a.college_id === collegeId)
+    if (!showMajorDropdown || !majorId) return byCollege
+    // Build advisor -> Set<major_id> map
+    const majorsByAdvisor = new Map()
+    for (const { advisor_id, major_id } of allAdvisorMajors) {
+      if (!majorsByAdvisor.has(advisor_id)) majorsByAdvisor.set(advisor_id, new Set())
+      majorsByAdvisor.get(advisor_id).add(major_id)
+    }
+    return byCollege.filter((a) => {
+      const assigned = majorsByAdvisor.get(a.id)
+      // Show if: no major assignments (general advisor) OR assigned to the selected major
+      return !assigned || assigned.size === 0 || assigned.has(majorId)
+    })
+  })()
 
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [{ data: collegeData, error: collegeErr }, { data: advisorData, error: advisorErr }] = await Promise.all([
+        const [
+          { data: collegeData,       error: collegeErr       },
+          { data: advisorData,       error: advisorErr       },
+          { data: majorData,         error: majorErr         },
+          { data: advisorMajorData,  error: advisorMajorErr  },
+        ] = await Promise.all([
           supabasePublic
             .from('colleges')
-            .select('id, name')
+            .select('id, name, show_major_dropdown')
             .eq('is_active', true)
             .order('name', { ascending: true }),
           supabasePublic
@@ -68,11 +99,23 @@ export default function KioskPage() {
             .select('id, name, college_id')
             .eq('is_active', true)
             .order('name', { ascending: true }),
+          supabasePublic
+            .from('majors')
+            .select('id, name, college_id')
+            .eq('is_active', true)
+            .order('name', { ascending: true }),
+          supabasePublic
+            .from('advisor_majors')
+            .select('advisor_id, major_id'),
         ])
-        if (collegeErr) throw new Error(`Colleges: ${collegeErr.message}`)
-        if (advisorErr) throw new Error(`Advisors: ${advisorErr.message}`)
-        setColleges(collegeData || [])
-        setAllAdvisors(advisorData || [])
+        if (collegeErr)      throw new Error(`Colleges: ${collegeErr.message}`)
+        if (advisorErr)      throw new Error(`Advisors: ${advisorErr.message}`)
+        if (majorErr)        throw new Error(`Majors: ${majorErr.message}`)
+        if (advisorMajorErr) throw new Error(`Advisor majors: ${advisorMajorErr.message}`)
+        setColleges(collegeData         || [])
+        setAllAdvisors(advisorData      || [])
+        setAllMajors(majorData          || [])
+        setAllAdvisorMajors(advisorMajorData || [])
       } catch (err) {
         setLoadError(`Failed to load form options: ${err.message}`)
       } finally {
@@ -82,9 +125,11 @@ export default function KioskPage() {
     loadOptions()
   }, [])
 
-  // When college changes, clear the advisor selection
+  // When college changes, clear major and advisor selections
   const handleCollegeChange = (e) => {
     setCollegeId(e.target.value)
+    setMajorId('')
+    setMajorError('')
     setAdvisorId('')
     setAdvisorError('')
     if (collegeError) setCollegeError('')
@@ -99,6 +144,14 @@ export default function KioskPage() {
     if (val !== DROP_IN_TYPE && advisorId === NEXT_AVAILABLE) {
       setAdvisorId('')
     }
+  }
+
+  // When major changes, clear advisor selection (filtered list may change)
+  const handleMajorChange = (e) => {
+    setMajorId(e.target.value)
+    setAdvisorId('')
+    setAdvisorError('')
+    if (majorError) setMajorError('')
   }
 
   // Countdown on success screen
@@ -124,11 +177,13 @@ export default function KioskPage() {
     setName('')
     setEmail('')
     setCollegeId('')
+    setMajorId('')
     setAdvisorId('')
     setAppointmentType('')
     setNameError('')
     setEmailError('')
     setCollegeError('')
+    setMajorError('')
     setAdvisorError('')
     setAppointmentError('')
     setSubmitError('')
@@ -144,27 +199,33 @@ export default function KioskPage() {
     e.preventDefault()
     setSubmitError('')
 
-    const nErr = name.trim()       ? '' : 'Full name is required.'
-    const eErr = validateEmail(email)
-    const cErr = collegeId         ? '' : 'Please select your college.'
-    const aErr = advisorId         ? '' : 'Please select an advisor.'
-    const apErr = appointmentType  ? '' : 'Please select an appointment type.'
+    const nErr  = name.trim()       ? '' : 'Full name is required.'
+    const eErr  = validateEmail(email)
+    const cErr  = collegeId         ? '' : 'Please select your college.'
+    const mErr  = showMajorDropdown && !majorId ? 'Please select your major.' : ''
+    const aErr  = advisorId         ? '' : 'Please select an advisor.'
+    const apErr = appointmentType   ? '' : 'Please select an appointment type.'
 
     setNameError(nErr)
     setEmailError(eErr)
     setCollegeError(cErr)
+    setMajorError(mErr)
     setAdvisorError(aErr)
     setAppointmentError(apErr)
 
-    if (nErr || eErr || cErr || aErr || apErr) return
+    if (nErr || eErr || cErr || mErr || aErr || apErr) return
 
     setSubmitting(true)
     try {
+      // Resolve major name for storage
+      const selectedMajor = allMajors.find((m) => m.id === majorId)
+
       const { error: dbError } = await supabasePublic.from('queue').insert([{
         student_name:     name.trim(),
         student_email:    email.trim().toLowerCase(),
         advisor_id:       advisorId === NEXT_AVAILABLE ? null : advisorId,
         college_id:       collegeId,
+        major:            selectedMajor?.name ?? null,
         appointment_type: appointmentType,
         status:           'waiting',
         checked_in_at:    new Date().toISOString(),
@@ -311,7 +372,63 @@ export default function KioskPage() {
             <FieldError msg={collegeError} />
           </div>
 
-          {/* 4. Appointment Type */}
+          {/* 4. Major (conditional — only when college has show_major_dropdown enabled) */}
+          {showMajorDropdown && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Major <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={majorId}
+                onChange={handleMajorChange}
+                onBlur={() => setMajorError(majorId ? '' : 'Please select your major.')}
+                disabled={loadingOptions || !collegeId}
+                className={`${majorError ? inputError : inputNormal} bg-white disabled:opacity-60`}
+              >
+                <option value="">
+                  {filteredMajors.length === 0 ? 'No majors available' : 'Select your major...'}
+                </option>
+                {filteredMajors.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+              <FieldError msg={majorError} />
+            </div>
+          )}
+
+          {/* 5. Advisor */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Select Your Advisor <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={advisorId}
+              onChange={(e) => { setAdvisorId(e.target.value); if (advisorError) setAdvisorError('') }}
+              onBlur={() => setAdvisorError(advisorId ? '' : 'Please select an advisor.')}
+              disabled={loadingOptions || !collegeId || (showMajorDropdown && !majorId)}
+              className={`${advisorError ? inputError : inputNormal} bg-white disabled:opacity-60`}
+            >
+              <option value="">
+                {!collegeId
+                  ? 'Select a college first'
+                  : showMajorDropdown && !majorId
+                  ? 'Select a major first'
+                  : filteredAdvisors.length === 0
+                  ? 'No advisors available'
+                  : 'Select your advisor...'}
+              </option>
+              {appointmentType === DROP_IN_TYPE && collegeId && (
+                <option value={NEXT_AVAILABLE}>Next Available</option>
+              )}
+              {filteredAdvisors.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <FieldError msg={advisorError} />
+          </div>
+
+
+          {/* 6. Appointment Type */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               Appointment Type <span className="text-red-500">*</span>
@@ -330,34 +447,6 @@ export default function KioskPage() {
             <FieldError msg={appointmentError} />
           </div>
 
-          {/* 5. Advisor */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Select Your Advisor <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={advisorId}
-              onChange={(e) => { setAdvisorId(e.target.value); if (advisorError) setAdvisorError('') }}
-              onBlur={() => setAdvisorError(advisorId ? '' : 'Please select an advisor.')}
-              disabled={loadingOptions || !collegeId}
-              className={`${advisorError ? inputError : inputNormal} bg-white disabled:opacity-60`}
-            >
-              <option value="">
-                {!collegeId
-                  ? 'Select a college first'
-                  : filteredAdvisors.length === 0
-                  ? 'No advisors available'
-                  : 'Select your advisor...'}
-              </option>
-              {appointmentType === DROP_IN_TYPE && collegeId && (
-                <option value={NEXT_AVAILABLE}>Next Available</option>
-              )}
-              {filteredAdvisors.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-            <FieldError msg={advisorError} />
-          </div>
 
           {/* Load error */}
           {loadError && (
@@ -375,7 +464,7 @@ export default function KioskPage() {
             </div>
           )}
 
-          {/* 6. Submit */}
+          {/* 7. Submit */}
           <button
             type="submit"
             disabled={submitting || loadingOptions}
