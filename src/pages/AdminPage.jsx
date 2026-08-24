@@ -447,11 +447,41 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
     ea_suite:        advisor.ea_suite ?? false,
     ea_suite_admin:  advisor.ea_suite_admin ?? false,
   })
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState('')
+  const [saving, setSaving]                   = useState(false)
+  const [error, setError]                     = useState('')
+  const [majorsList, setMajorsList]           = useState([])
+  const [assignedMajorIds, setAssignedMajorIds] = useState(new Set())
+  const [majorsLoading, setMajorsLoading]     = useState(false)
 
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setError('') }
   const tog = (k) => () => { setForm((f) => ({ ...f, [k]: !f[k] })) }
+
+  // Fetch majors for the selected college + existing assignments whenever college changes
+  useEffect(() => {
+    if (!form.college_id) {
+      setMajorsList([])
+      setAssignedMajorIds(new Set())
+      return
+    }
+    setMajorsLoading(true)
+    Promise.all([
+      supabase.from('majors').select('id, name').eq('college_id', form.college_id).eq('is_active', true).order('name'),
+      supabase.from('advisor_majors').select('major_id').eq('advisor_id', advisor.id),
+    ]).then(([{ data: majors }, { data: assigned }]) => {
+      setMajorsList(majors ?? [])
+      setAssignedMajorIds(new Set((assigned ?? []).map((r) => r.major_id)))
+      setMajorsLoading(false)
+    })
+  }, [form.college_id, advisor.id])
+
+  const toggleMajor = (id) => {
+    setAssignedMajorIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -469,11 +499,21 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
       ea_suite:         form.ea_suite,
       ea_suite_admin:   form.ea_suite_admin,
     }).eq('id', advisor.id)
-    setSaving(false)
     if (dbErr) {
+      setSaving(false)
       setError(dbErr.code === '23505' ? 'That email is already in use.' : dbErr.message)
       return
     }
+
+    // Sync advisor_majors: replace all assignments for this advisor
+    await supabase.from('advisor_majors').delete().eq('advisor_id', advisor.id)
+    if (assignedMajorIds.size > 0) {
+      await supabase.from('advisor_majors').insert(
+        [...assignedMajorIds].map((major_id) => ({ advisor_id: advisor.id, major_id }))
+      )
+    }
+
+    setSaving(false)
     onSaved({ ...advisor, ...form, college_id: form.college_id || null,
       college: colleges.find((c) => c.id === form.college_id) ?? null })
   }
@@ -527,6 +567,35 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
               ))}
             </div>
           </div>
+
+          {/* Assigned Majors */}
+          {form.college_id && (
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-0.5">Assigned Majors</p>
+              <p className="text-xs text-gray-400 mb-2">Leave all unchecked to advise all majors.</p>
+              {majorsLoading ? (
+                <p className="text-sm text-gray-400 py-2">Loading majors…</p>
+              ) : majorsList.length === 0 ? (
+                <p className="text-sm text-gray-400 py-2">No majors configured for this college.</p>
+              ) : (
+                <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto divide-y divide-gray-100">
+                  {majorsList.map((m) => (
+                    <label key={m.id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={assignedMajorIds.has(m.id)}
+                        onChange={() => toggleMajor(m.id)}
+                        disabled={saving}
+                        className="h-4 w-4 rounded border-gray-300 text-[#003366] focus:ring-[#003366]"
+                      />
+                      <span className="text-sm text-gray-700">{m.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
