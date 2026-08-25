@@ -7,7 +7,7 @@ async function fetchAdvisorProfile(email) {
   if (!email) return null
   const { data } = await supabase
     .from('advisors')
-    .select('id, name, role, college_id, is_college_admin, is_suite_admin')
+    .select('id, name, role, college_id, is_college_admin, is_suite_admin, ea_suite_admin')
     .eq('email', email.toLowerCase())
     .maybeSingle()
   return data ?? null
@@ -19,8 +19,9 @@ export function AuthProvider({ children }) {
   const [advisorId, setAdvisorId]       = useState(null)
   const [advisorName, setAdvisorName]   = useState(null)
   const [collegeId, setCollegeId]       = useState(null)
-  const [isCollegeAdmin, setIsCollegeAdmin] = useState(false)
-  const [isSuiteAdmin, setIsSuiteAdmin]     = useState(false)
+  const [isCollegeAdmin, setIsCollegeAdmin]   = useState(false)
+  const [isSuiteAdmin, setIsSuiteAdmin]       = useState(false)
+  const [isEASuiteAdmin, setIsEASuiteAdmin]   = useState(false)
   const [loading, setLoading]           = useState(true)
 
   const applyProfile = (profile) => {
@@ -30,6 +31,7 @@ export function AuthProvider({ children }) {
     setCollegeId(profile?.college_id ?? null)
     setIsCollegeAdmin(profile?.is_college_admin ?? false)
     setIsSuiteAdmin(profile?.is_suite_admin ?? false)
+    setIsEASuiteAdmin(profile?.ea_suite_admin ?? false)
   }
 
   const clearProfile = () => {
@@ -39,6 +41,7 @@ export function AuthProvider({ children }) {
     setCollegeId(null)
     setIsCollegeAdmin(false)
     setIsSuiteAdmin(false)
+    setIsEASuiteAdmin(false)
   }
 
   useEffect(() => {
@@ -53,10 +56,6 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user?.email) {
-        // Defer: calling back into supabase (fetchAdvisorProfile needs the
-        // access token) from directly inside this callback can deadlock,
-        // since it runs while the auth client is still processing this same
-        // state change. See supabase-js onAuthStateChange docs.
         const email = session.user.email
         setTimeout(() => {
           fetchAdvisorProfile(email).then(applyProfile)
@@ -79,6 +78,7 @@ export function AuthProvider({ children }) {
       advisorName:    profile?.name ?? null,
       isCollegeAdmin: profile?.is_college_admin ?? false,
       isSuiteAdmin:   profile?.is_suite_admin ?? false,
+      isEASuiteAdmin: profile?.ea_suite_admin ?? false,
     }
   }
 
@@ -86,7 +86,9 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, role, advisorId, advisorName, collegeId, isCollegeAdmin, isSuiteAdmin, loading, signIn, signOut,
+      user, role, advisorId, advisorName, collegeId,
+      isCollegeAdmin, isSuiteAdmin, isEASuiteAdmin,
+      loading, signIn, signOut,
     }}>
       {children}
     </AuthContext.Provider>

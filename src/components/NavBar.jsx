@@ -148,7 +148,8 @@ function ChangePasswordModal({ onClose }) {
 const NAV_LINKS = [
   { to: '/advisor',       label: 'My Queue',     show: () => true },
   { to: '/college-admin', label: 'College Queue', show: (a) => a.isCollegeAdmin || a.role === 'admin' },
-  { to: '/suite-admin',   label: 'Suite Queue',   show: (a) => a.isSuiteAdmin || a.role === 'admin' },
+  { to: '/suite-admin',   label: 'UAC Suite Queue', show: (a) => a.isSuiteAdmin || a.role === 'admin' },
+  { to: '/ea-suite-admin', label: 'EA Suite Queue',  show: (a) => a.isEASuiteAdmin || a.role === 'admin' },
   { to: '/admin',         label: 'Admin',          show: (a) => a.role === 'admin' },
 ]
 

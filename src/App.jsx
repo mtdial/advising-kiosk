@@ -8,6 +8,7 @@ import AdvisorPage from './pages/AdvisorPage'
 import AdminPage from './pages/AdminPage'
 import CollegeAdminPage from './pages/CollegeAdminPage'
 import SuiteAdminPage from './pages/SuiteAdminPage'
+import EASuiteAdminPage from './pages/EASuiteAdminPage'
 
 export default function App() {
   return (
@@ -46,6 +47,14 @@ export default function App() {
             element={
               <ProtectedRoute requireFlag="isSuiteAdmin">
                 <SuiteAdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ea-suite-admin"
+            element={
+              <ProtectedRoute requireFlag="isEASuiteAdmin">
+                <EASuiteAdminPage />
               </ProtectedRoute>
             }
           />
