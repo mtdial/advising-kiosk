@@ -4,15 +4,13 @@ import { supabase } from '../supabase'
 import NavBar from '../components/NavBar'
 
 // ── Audio chime ───────────────────────────────────────────────────────────────
-// Louder, 3-tone ascending burst (C5 → E5 → G5). Single play, no repeat.
 function playChime() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     ctx.resume()
     const master = ctx.createGain()
-    master.gain.value = 0.8          // was 1.0 implicit; now explicitly loud
+    master.gain.value = 0.8
     master.connect(ctx.destination)
-
     function tone(freq, start, duration) {
       const osc  = ctx.createOscillator()
       const gain = ctx.createGain()
@@ -25,15 +23,12 @@ function playChime() {
       osc.start(start)
       osc.stop(start + duration)
     }
-
     const t = ctx.currentTime
-    tone(523, t,        0.25)   // C5
-    tone(659, t + 0.22, 0.25)   // E5
-    tone(784, t + 0.44, 0.45)   // G5 — sustained tail
+    tone(523, t,        0.25)
+    tone(659, t + 0.22, 0.25)
+    tone(784, t + 0.44, 0.45)
     setTimeout(() => ctx.close(), 1600)
-  } catch {
-    // audio not available — silently ignore
-  }
+  } catch { /* audio not available */ }
 }
 
 // ── Browser push notification ─────────────────────────────────────────────────
@@ -43,8 +38,8 @@ function sendPushNotification(name, type) {
     body: `${name} (${type}) is waiting to see you.`,
     icon: '/favicon.svg',
     badge: '/favicon.svg',
-    tag: 'advisor-checkin',      // replaces previous if still showing
-    renotify: true,              // still plays sound even if same tag
+    tag: 'advisor-checkin',
+    renotify: true,
   })
 }
 
@@ -53,30 +48,22 @@ const BASE_TITLE = 'Your Queue'
 
 function useTabFlash() {
   const flashRef = useRef(null)
-
   const startFlash = useCallback(() => {
-    if (flashRef.current) return   // already flashing
+    if (flashRef.current) return
     let toggle = true
     flashRef.current = setInterval(() => {
       document.title = toggle ? '🔔 New Check-In!' : BASE_TITLE
       toggle = !toggle
     }, 800)
   }, [])
-
   const stopFlash = useCallback(() => {
-    if (flashRef.current) {
-      clearInterval(flashRef.current)
-      flashRef.current = null
-    }
+    if (flashRef.current) { clearInterval(flashRef.current); flashRef.current = null }
     document.title = BASE_TITLE
   }, [])
-
-  // Stop flashing the moment the advisor focuses the tab
   useEffect(() => {
     const onVisible = () => { if (!document.hidden) stopFlash() }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', stopFlash)
-    // Set base title on mount; restore on unmount
     document.title = BASE_TITLE
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
@@ -84,13 +71,20 @@ function useTabFlash() {
       document.title = BASE_TITLE
     }
   }, [stopFlash])
-
   return { startFlash, stopFlash }
 }
 
-// ── Wait timer ────────────────────────────────────────────────────────────────
+// ── Wait timers ───────────────────────────────────────────────────────────────
 function formatWait(checkedInAt, now) {
   const total = Math.max(0, Math.floor((now - new Date(checkedInAt).getTime()) / 1000))
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}m ${s < 10 ? '0' : ''}${s}s`
+}
+
+function formatWaitFrozen(checkedInAt, seenAt) {
+  if (!seenAt) return '—'
+  const total = Math.max(0, Math.floor((new Date(seenAt).getTime() - new Date(checkedInAt).getTime()) / 1000))
   const m = Math.floor(total / 60)
   const s = total % 60
   return `${m}m ${s < 10 ? '0' : ''}${s}s`
@@ -101,15 +95,32 @@ function ToastList({ toasts }) {
   return (
     <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
-        <div
-          key={t.id}
-          className="bg-[#FFB300] text-[#003366] text-sm px-4 py-3 rounded-xl shadow-xl flex items-start gap-2 max-w-xs animate-fade-in"
-        >
+        <div key={t.id} className="bg-[#FFB300] text-[#73000a] text-sm px-4 py-3 rounded-xl shadow-xl flex items-start gap-2 max-w-xs animate-fade-in">
           <span className="mt-0.5">🔔</span>
           <span>{t.message}</span>
         </div>
       ))}
     </div>
+  )
+}
+
+// ── Toggle switch ─────────────────────────────────────────────────────────────
+function Toggle({ checked, onChange, disabled = false }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      disabled={disabled}
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${
+        checked ? 'bg-[#73000a]' : 'bg-gray-300'
+      }`}
+    >
+      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+        checked ? 'translate-x-5' : 'translate-x-0'
+      }`} />
+    </button>
   )
 }
 
@@ -130,8 +141,8 @@ function EmptyState() {
 
 // ── Queue card ────────────────────────────────────────────────────────────────
 function QueueCard({ entry, now, onInProgress, onSeen }) {
-  const isInProgress   = entry.status === 'in-progress'
-  const collegeName    = entry.college?.name ?? '—'
+  const isInProgress    = entry.status === 'in-progress'
+  const collegeName     = entry.college?.name ?? '—'
   const isNextAvailable = entry.advisor_id === null
 
   return (
@@ -142,15 +153,14 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
 
         {/* Left: student info */}
         <div className="flex-1 min-w-0 space-y-1">
-          {/* Name + appointment type badge */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg font-bold text-gray-900">{entry.student_name}</span>
             {entry.appointment_type === 'Office Hours: Drop-In' ? (
-              <span className="text-xs font-bold bg-[#FFB300] text-[#003366] px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-bold bg-[#FFB300] text-[#73000a] px-2.5 py-0.5 rounded-full">
                 Office Hours: Drop-In
               </span>
             ) : (
-              <span className="text-xs font-bold bg-[#003366] text-white px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-bold bg-[#73000a] text-white px-2.5 py-0.5 rounded-full">
                 Scheduled
               </span>
             )}
@@ -160,31 +170,34 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
               </span>
             )}
             {isInProgress && (
-              <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-semibold bg-[#dce6f0] text-[#466A9F] px-2.5 py-0.5 rounded-full">
                 In Progress
               </span>
             )}
           </div>
 
-          {/* Email */}
           <div className="text-sm text-gray-500">{entry.student_email}</div>
 
-          {/* College */}
           <div className="text-sm text-gray-600">
             <span className="font-medium text-gray-700">College:</span> {collegeName}
           </div>
 
-          {/* Who they're here to see */}
           <div className="text-sm text-gray-600">
             <span className="font-medium text-gray-700">Here to see:</span>{' '}
             {isNextAvailable ? 'Next Available' : 'You'}
           </div>
 
-          {/* Wait timer */}
+          {entry.notes && (
+            <div className="text-sm text-gray-600 mt-1 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <span className="font-medium text-gray-700">Notes: </span>
+              {entry.notes}
+            </div>
+          )}
+
           <div className={`text-sm font-mono font-semibold mt-1 ${
             Math.floor((now - new Date(entry.checked_in_at).getTime()) / 60000) >= 15
               ? 'text-red-500'
-              : 'text-[#003366]'
+              : 'text-[#73000a]'
           }`}>
             Waiting: {formatWait(entry.checked_in_at, now)}
           </div>
@@ -195,7 +208,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           {entry.status === 'waiting' && (
             <button
               onClick={() => onInProgress(entry.id)}
-              className="bg-[#FFB300] text-[#003366] font-bold px-5 py-2.5 rounded-xl hover:bg-[#e6a200] transition-colors text-sm shadow-sm w-full sm:w-auto"
+              className="bg-[#FFB300] text-[#73000a] font-bold px-5 py-2.5 rounded-xl hover:bg-[#e6a200] transition-colors text-sm shadow-sm w-full sm:w-auto"
             >
               Waiting
             </button>
@@ -214,6 +227,86 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
   )
 }
 
+// ── Seen Today table ──────────────────────────────────────────────────────────
+function SeenTodaySection({ advisorId, collegeId }) {
+  const [seenRows, setSeenRows] = useState([])
+  const [loading, setLoading]   = useState(true)
+
+  const fetchSeen = useCallback(async () => {
+    if (!advisorId) return
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    let query = supabase
+      .from('queue')
+      .select('*, college:colleges(name)')
+      .eq('status', 'seen')
+      .gte('seen_at', todayStart.toISOString())
+      .order('seen_at', { ascending: false })
+
+    query = collegeId
+      ? query.or(`advisor_id.eq.${advisorId},advisor_id.is.null`).eq('college_id', collegeId)
+      : query.eq('advisor_id', advisorId)
+
+    const { data, error } = await query
+    if (!error) setSeenRows(data ?? [])
+    setLoading(false)
+  }, [advisorId, collegeId])
+
+  useEffect(() => {
+    fetchSeen()
+    const poll = setInterval(fetchSeen, 10000)
+    const channel = supabase
+      .channel(`advisor-seen-${advisorId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'queue' }, fetchSeen)
+      .subscribe()
+    return () => { clearInterval(poll); supabase.removeChannel(channel) }
+  }, [fetchSeen, advisorId])
+
+  if (loading || seenRows.length === 0) return null
+
+  return (
+    <div className="mt-10">
+      <h2 className="text-lg font-bold text-gray-700 mb-3">Seen Today</h2>
+      <div className="bg-white rounded-xl shadow overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200 text-left">
+              {['Student Name', 'Student Email', 'College', 'Appt Type', 'Wait Time', 'Notes'].map((h) => (
+                <th key={h} className="px-4 py-3 text-gray-600 font-semibold whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {seenRows.map((r, i) => (
+              <tr key={r.id} className={`border-b border-gray-100 ${i % 2 ? 'bg-gray-50' : ''}`}>
+                <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">{r.student_name}</td>
+                <td className="px-4 py-3 text-gray-500">{r.student_email}</td>
+                <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.college?.name ?? '—'}</td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                    r.appointment_type === 'Office Hours: Drop-In'
+                      ? 'bg-[#FFB300]/20 text-[#73000a]'
+                      : 'bg-[#dce6f0] text-[#466A9F]'
+                  }`}>
+                    {r.appointment_type ?? '—'}
+                  </span>
+                </td>
+                <td className="px-4 py-3 font-mono text-sm text-gray-500 whitespace-nowrap">
+                  {formatWaitFrozen(r.checked_in_at, r.seen_at)}
+                </td>
+                <td className="px-4 py-3 text-gray-600 max-w-xs">
+                  {r.notes ? <span className="text-sm italic">{r.notes}</span> : <span className="text-gray-300">—</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function AdvisorPage() {
   const { advisorId, collegeId } = useAuth()
@@ -223,32 +316,52 @@ export default function AdvisorPage() {
   const [toasts, setToasts]   = useState([])
   const hasLoaded             = useRef(false)
 
+  // Office hours availability
+  const [officeHoursAvailable, setOfficeHoursAvailable] = useState(false)
+  const [officeHoursLoading, setOfficeHoursLoading]     = useState(true)
+
   const { startFlash } = useTabFlash()
 
-  // ── Request push-notification permission once on mount
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission()
     }
   }, [])
 
-  // ── Tick every second for live wait timers
+  // Fetch current office hours status
+  useEffect(() => {
+    if (!advisorId) return
+    supabase
+      .from('advisors')
+      .select('office_hours_available')
+      .eq('id', advisorId)
+      .single()
+      .then(({ data }) => {
+        setOfficeHoursAvailable(data?.office_hours_available ?? false)
+        setOfficeHoursLoading(false)
+      })
+  }, [advisorId])
+
+  const toggleOfficeHours = async () => {
+    const newVal = !officeHoursAvailable
+    setOfficeHoursAvailable(newVal)
+    await supabase
+      .from('advisors')
+      .update({ office_hours_available: newVal })
+      .eq('id', advisorId)
+  }
+
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [])
 
-  // ── Toast helpers
   const addToast = useCallback((message) => {
     const id = Date.now()
     setToasts((prev) => [...prev, { id, message }])
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000)
   }, [])
 
-  // ── Fetch queue (waiting + in-progress only, joined to colleges).
-  // Includes this advisor's own entries plus any "Next Available" entries
-  // (advisor_id is null) for their college, since those appear on every
-  // advisor's queue in that college.
   const fetchQueue = useCallback(async () => {
     if (!advisorId) return
     let query = supabase
@@ -267,17 +380,10 @@ export default function AdvisorPage() {
     hasLoaded.current = true
   }, [advisorId, collegeId])
 
-  // ── Initial load + realtime subscription + polling fallback
   useEffect(() => {
     if (!advisorId) return
     fetchQueue()
-
     const poll = setInterval(fetchQueue, 2000)
-
-    // Realtime filters only support a single equality condition, so
-    // subscribe broadly by college (falling back to advisor_id when the
-    // advisor has no college) and let fetchQueue's query do the precise
-    // filtering.
     const channel = supabase
       .channel(`advisor-queue-${advisorId}`)
       .on(
@@ -289,9 +395,6 @@ export default function AdvisorPage() {
           filter: collegeId ? `college_id=eq.${collegeId}` : `advisor_id=eq.${advisorId}`,
         },
         (payload) => {
-          // Play chime + toast only for brand-new check-ins meant for this
-          // advisor (their own, or a Next Available for their college)
-          // while the page is live.
           const isForThisAdvisor =
             payload.new?.advisor_id === advisorId || payload.new?.advisor_id === null
           if (
@@ -311,33 +414,19 @@ export default function AdvisorPage() {
         }
       )
       .subscribe()
-
-    return () => {
-      clearInterval(poll)
-      supabase.removeChannel(channel)
-    }
+    return () => { clearInterval(poll); supabase.removeChannel(channel) }
   }, [advisorId, collegeId, fetchQueue, addToast, startFlash])
 
-  // ── Status update helpers
-
-  // Claiming a "Next Available" entry (advisor_id null) assigns it to this
-  // advisor so it stops appearing on every other advisor's queue. The
-  // .is('advisor_id', null) guard prevents two advisors from both claiming
-  // the same student if they click at the same moment.
   const handleInProgress = async (id) => {
     const entry = queue.find((r) => r.id === id)
     const isNextAvailable = entry?.advisor_id === null
-
     let query = supabase
       .from('queue')
       .update(isNextAvailable ? { status: 'in-progress', advisor_id: advisorId } : { status: 'in-progress' })
       .eq('id', id)
     if (isNextAvailable) query = query.is('advisor_id', null)
-
     const { error } = await query
     if (error) return
-
-    // optimistic update
     setQueue((prev) => prev.map((r) => r.id === id
       ? { ...r, status: 'in-progress', ...(isNextAvailable ? { advisor_id: advisorId } : {}) }
       : r))
@@ -351,13 +440,10 @@ export default function AdvisorPage() {
     setQueue((prev) => prev.filter((r) => r.id !== id))
   }
 
-  // ── Sort: waiting first, then in-progress; each group oldest-first
-  const sorted = [...queue].sort((a, b) => {
-    const order = { waiting: 0, 'in-progress': 1 }
-    const diff  = (order[a.status] ?? 2) - (order[b.status] ?? 2)
-    if (diff !== 0) return diff
-    return new Date(a.checked_in_at) - new Date(b.checked_in_at)
-  })
+  // Sort purely by wait time (oldest first) across all statuses
+  const sorted = [...queue].sort((a, b) =>
+    new Date(a.checked_in_at) - new Date(b.checked_in_at)
+  )
 
   const waitingCount    = queue.filter((r) => r.status === 'waiting').length
   const inProgressCount = queue.filter((r) => r.status === 'in-progress').length
@@ -369,10 +455,27 @@ export default function AdvisorPage() {
 
       <div className="max-w-3xl mx-auto px-4 py-8">
 
+        {/* Office hours availability toggle */}
+        <div className="flex items-center gap-4 bg-white rounded-xl shadow px-5 py-4 mb-6">
+          <div className="flex-1">
+            <p className="font-semibold text-gray-800">Available for Office Hours Drop-In</p>
+            <p className="text-sm text-gray-500">
+              {officeHoursAvailable
+                ? 'Students can select you for drop-in appointments'
+                : 'You will not appear in the drop-in advisor list'}
+            </p>
+          </div>
+          <Toggle
+            checked={officeHoursAvailable}
+            onChange={toggleOfficeHours}
+            disabled={officeHoursLoading}
+          />
+        </div>
+
         {/* Heading + counters */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#003366]">Your Queue</h1>
+            <h1 className="text-2xl font-bold text-[#73000a]">Your Queue</h1>
             {!loading && queue.length > 0 && (
               <p className="text-sm text-gray-500 mt-0.5">
                 {waitingCount} waiting · {inProgressCount} in progress
@@ -405,6 +508,9 @@ export default function AdvisorPage() {
             ))}
           </div>
         )}
+
+        {/* Seen Today */}
+        <SeenTodaySection advisorId={advisorId} collegeId={collegeId} />
       </div>
     </div>
   )

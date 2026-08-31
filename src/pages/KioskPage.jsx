@@ -7,7 +7,7 @@ const DROP_IN_TYPE = 'Office Hours: Drop-In'
 const NEXT_AVAILABLE = 'next-available'
 
 const inputClass =
-  'w-full border rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[#003366] focus:border-transparent transition-colors'
+  'w-full border rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[#73000a] focus:border-transparent transition-colors'
 const inputNormal = `${inputClass} border-gray-300`
 const inputError  = `${inputClass} border-red-400 bg-red-50`
 
@@ -30,44 +30,45 @@ export default function KioskPage() {
   // Reference data
   const [colleges, setColleges]                 = useState([])
   const [allAdvisors, setAllAdvisors]           = useState([])
-  const [allMajors, setAllMajors]               = useState([])       // {id, name, college_id}
-  const [allAdvisorMajors, setAllAdvisorMajors] = useState([])       // {advisor_id, major_id}
+  const [allMajors, setAllMajors]               = useState([])
+  const [allAdvisorMajors, setAllAdvisorMajors] = useState([])
   const [loadingOptions, setLoadingOptions]     = useState(true)
   const [loadError, setLoadError]               = useState('')
 
   // Form values
   const [name, setName]                       = useState('')
   const [email, setEmail]                     = useState('')
+  const [appointmentType, setAppointmentType] = useState('')
   const [collegeId, setCollegeId]             = useState('')
   const [majorId, setMajorId]                 = useState('')
   const [advisorId, setAdvisorId]             = useState('')
-  const [appointmentType, setAppointmentType] = useState('')
+  const [notes, setNotes]                     = useState('')
 
   // Field errors
   const [nameError, setNameError]               = useState('')
   const [emailError, setEmailError]             = useState('')
+  const [appointmentError, setAppointmentError] = useState('')
   const [collegeError, setCollegeError]         = useState('')
   const [majorError, setMajorError]             = useState('')
   const [advisorError, setAdvisorError]         = useState('')
-  const [appointmentError, setAppointmentError] = useState('')
 
   const [checkedInName, setCheckedInName] = useState('')
 
-  // Derived: selected college object (for show_major_dropdown flag)
   const selectedCollege = colleges.find((c) => c.id === collegeId) ?? null
   const showMajorDropdown = !!selectedCollege?.show_major_dropdown
 
-  // Majors filtered by the selected college
   const filteredMajors = collegeId
     ? allMajors.filter((m) => m.college_id === collegeId)
     : []
 
-  // Advisors filtered by college, then by major when dropdown is active
   const filteredAdvisors = (() => {
     if (!collegeId) return []
-    const byCollege = allAdvisors.filter((a) => a.college_id === collegeId)
+    let byCollege = allAdvisors.filter((a) => a.college_id === collegeId)
+    // For drop-in, only show advisors available for office hours
+    if (appointmentType === DROP_IN_TYPE) {
+      byCollege = byCollege.filter((a) => a.office_hours_available)
+    }
     if (!showMajorDropdown || !majorId) return byCollege
-    // Build advisor -> Set<major_id> map
     const majorsByAdvisor = new Map()
     for (const { advisor_id, major_id } of allAdvisorMajors) {
       if (!majorsByAdvisor.has(advisor_id)) majorsByAdvisor.set(advisor_id, new Set())
@@ -75,7 +76,6 @@ export default function KioskPage() {
     }
     return byCollege.filter((a) => {
       const assigned = majorsByAdvisor.get(a.id)
-      // Show if: no major assignments (general advisor) OR assigned to the selected major
       return !assigned || assigned.size === 0 || assigned.has(majorId)
     })
   })()
@@ -96,7 +96,7 @@ export default function KioskPage() {
             .order('name', { ascending: true }),
           supabasePublic
             .from('advisors')
-            .select('id, name, college_id')
+            .select('id, name, college_id, office_hours_available')
             .eq('is_active', true)
             .order('name', { ascending: true }),
           supabasePublic
@@ -125,7 +125,15 @@ export default function KioskPage() {
     loadOptions()
   }, [])
 
-  // When college changes, clear major and advisor selections
+  const handleAppointmentTypeChange = (e) => {
+    const val = e.target.value
+    setAppointmentType(val)
+    if (appointmentError) setAppointmentError('')
+    // Clear advisor selection since filtered list may change
+    setAdvisorId('')
+    setAdvisorError('')
+  }
+
   const handleCollegeChange = (e) => {
     setCollegeId(e.target.value)
     setMajorId('')
@@ -135,18 +143,6 @@ export default function KioskPage() {
     if (collegeError) setCollegeError('')
   }
 
-  // When appointment type changes away from Drop-In, "Next Available" is no
-  // longer a valid advisor choice, so clear it.
-  const handleAppointmentTypeChange = (e) => {
-    const val = e.target.value
-    setAppointmentType(val)
-    if (appointmentError) setAppointmentError('')
-    if (val !== DROP_IN_TYPE && advisorId === NEXT_AVAILABLE) {
-      setAdvisorId('')
-    }
-  }
-
-  // When major changes, clear advisor selection (filtered list may change)
   const handleMajorChange = (e) => {
     setMajorId(e.target.value)
     setAdvisorId('')
@@ -154,7 +150,6 @@ export default function KioskPage() {
     if (majorError) setMajorError('')
   }
 
-  // Countdown on success screen
   useEffect(() => {
     if (step !== 'success') return
     setCountdown(COUNTDOWN_SECONDS)
@@ -176,16 +171,17 @@ export default function KioskPage() {
     setStep('form')
     setName('')
     setEmail('')
+    setAppointmentType('')
     setCollegeId('')
     setMajorId('')
     setAdvisorId('')
-    setAppointmentType('')
+    setNotes('')
     setNameError('')
     setEmailError('')
+    setAppointmentError('')
     setCollegeError('')
     setMajorError('')
     setAdvisorError('')
-    setAppointmentError('')
     setSubmitError('')
   }
 
@@ -201,23 +197,22 @@ export default function KioskPage() {
 
     const nErr  = name.trim()       ? '' : 'Full name is required.'
     const eErr  = validateEmail(email)
+    const apErr = appointmentType   ? '' : 'Please select an appointment type.'
     const cErr  = collegeId         ? '' : 'Please select your college.'
     const mErr  = showMajorDropdown && !majorId ? 'Please select your major.' : ''
     const aErr  = advisorId         ? '' : 'Please select an advisor.'
-    const apErr = appointmentType   ? '' : 'Please select an appointment type.'
 
     setNameError(nErr)
     setEmailError(eErr)
+    setAppointmentError(apErr)
     setCollegeError(cErr)
     setMajorError(mErr)
     setAdvisorError(aErr)
-    setAppointmentError(apErr)
 
-    if (nErr || eErr || cErr || mErr || aErr || apErr) return
+    if (nErr || eErr || apErr || cErr || mErr || aErr) return
 
     setSubmitting(true)
     try {
-      // Resolve major name for storage
       const selectedMajor = allMajors.find((m) => m.id === majorId)
 
       const { error: dbError } = await supabasePublic.from('queue').insert([{
@@ -227,6 +222,7 @@ export default function KioskPage() {
         college_id:       collegeId,
         major:            selectedMajor?.name ?? null,
         appointment_type: appointmentType,
+        notes:            notes.trim() || null,
         status:           'waiting',
         checked_in_at:    new Date().toISOString(),
       }])
@@ -244,7 +240,7 @@ export default function KioskPage() {
   if (step === 'success') {
     const pct = ((COUNTDOWN_SECONDS - countdown) / COUNTDOWN_SECONDS) * 100
     return (
-      <div className="min-h-screen bg-[#003366] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#73000a] flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-10 text-center">
           <div className="w-24 h-24 rounded-full bg-[#FFB300] flex items-center justify-center mx-auto mb-6 shadow-lg">
             <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -252,7 +248,7 @@ export default function KioskPage() {
             </svg>
           </div>
 
-          <h2 className="text-3xl font-bold text-[#003366] mb-3">You're checked in!</h2>
+          <h2 className="text-3xl font-bold text-[#73000a] mb-3">You're checked in!</h2>
           <p className="text-gray-700 text-lg mb-2">
             Welcome, <span className="font-semibold">{checkedInName}</span>.
           </p>
@@ -266,14 +262,14 @@ export default function KioskPage() {
                 <circle cx="32" cy="32" r="28" fill="none" stroke="#e5e7eb" strokeWidth="4" />
                 <circle
                   cx="32" cy="32" r="28"
-                  fill="none" stroke="#003366" strokeWidth="4"
+                  fill="none" stroke="#73000a" strokeWidth="4"
                   strokeDasharray={`${2 * Math.PI * 28}`}
                   strokeDashoffset={`${2 * Math.PI * 28 * (1 - pct / 100)}`}
                   strokeLinecap="round"
                   style={{ transition: 'stroke-dashoffset 0.9s linear' }}
                 />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-[#003366]">
+              <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-[#73000a]">
                 {countdown}
               </span>
             </div>
@@ -284,7 +280,7 @@ export default function KioskPage() {
 
           <button
             onClick={handleReset}
-            className="w-full bg-[#003366] text-white py-3 rounded-lg font-semibold hover:bg-[#002244] transition-colors"
+            className="w-full bg-[#73000a] text-white py-3 rounded-lg font-semibold hover:bg-[#5a0008] transition-colors"
           >
             Check In Another Student
           </button>
@@ -295,11 +291,11 @@ export default function KioskPage() {
 
   // ── Form ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#003366] flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-[#73000a] flex flex-col items-center justify-center p-6">
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
 
         {/* Header */}
-        <div className="bg-[#003366] px-8 py-8 text-center">
+        <div className="bg-[#73000a] px-8 py-8 text-center">
           <div className="inline-flex items-center gap-2 mb-4">
             <div className="w-8 h-px bg-[#FFB300]" />
             <span className="text-[#FFB300] text-xs font-bold uppercase tracking-widest">
@@ -310,7 +306,7 @@ export default function KioskPage() {
           <h1 className="text-3xl font-bold text-white leading-tight">
             Welcome to Academic Advising
           </h1>
-          <p className="text-blue-200 mt-2 text-base">Please check in below.</p>
+          <p className="text-red-200 mt-2 text-base">Please check in below.</p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="px-8 py-7 space-y-5">
@@ -350,7 +346,26 @@ export default function KioskPage() {
             <FieldError msg={emailError} />
           </div>
 
-          {/* 3. College */}
+          {/* 3. Appointment Type */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Appointment Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={appointmentType}
+              onChange={handleAppointmentTypeChange}
+              onBlur={() => setAppointmentError(appointmentType ? '' : 'Please select an appointment type.')}
+              className={`${appointmentError ? inputError : inputNormal} bg-white`}
+            >
+              <option value="">Select an appointment type...</option>
+              {APPOINTMENT_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <FieldError msg={appointmentError} />
+          </div>
+
+          {/* 4. College */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               College <span className="text-red-500">*</span>
@@ -372,7 +387,7 @@ export default function KioskPage() {
             <FieldError msg={collegeError} />
           </div>
 
-          {/* 4. Major (conditional — only when college has show_major_dropdown enabled) */}
+          {/* 5. Major (conditional) */}
           {showMajorDropdown && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -396,7 +411,7 @@ export default function KioskPage() {
             </div>
           )}
 
-          {/* 5. Advisor */}
+          {/* 6. Advisor */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               Select Your Advisor <span className="text-red-500">*</span>
@@ -413,11 +428,13 @@ export default function KioskPage() {
                   ? 'Select a college first'
                   : showMajorDropdown && !majorId
                   ? 'Select a major first'
+                  : filteredAdvisors.length === 0 && appointmentType === DROP_IN_TYPE
+                  ? 'No advisors currently available for drop-in'
                   : filteredAdvisors.length === 0
                   ? 'No advisors available'
                   : 'Select your advisor...'}
               </option>
-              {appointmentType === DROP_IN_TYPE && collegeId && (
+              {appointmentType === DROP_IN_TYPE && collegeId && filteredAdvisors.length > 0 && (
                 <option value={NEXT_AVAILABLE}>Next Available</option>
               )}
               {filteredAdvisors.map((a) => (
@@ -427,26 +444,19 @@ export default function KioskPage() {
             <FieldError msg={advisorError} />
           </div>
 
-
-          {/* 6. Appointment Type */}
+          {/* 7. Notes for advisor (optional) */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Appointment Type <span className="text-red-500">*</span>
+              Notes for Advisor <span className="text-gray-400 font-normal">(optional)</span>
             </label>
-            <select
-              value={appointmentType}
-              onChange={handleAppointmentTypeChange}
-              onBlur={() => setAppointmentError(appointmentType ? '' : 'Please select an appointment type.')}
-              className={`${appointmentError ? inputError : inputNormal} bg-white`}
-            >
-              <option value="">Select an appointment type...</option>
-              {APPOINTMENT_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-            <FieldError msg={appointmentError} />
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Anything you'd like your advisor to know before your appointment…"
+              rows={3}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[#73000a] focus:border-transparent transition-colors resize-none"
+            />
           </div>
-
 
           {/* Load error */}
           {loadError && (
@@ -464,11 +474,11 @@ export default function KioskPage() {
             </div>
           )}
 
-          {/* 7. Submit */}
+          {/* 8. Submit */}
           <button
             type="submit"
             disabled={submitting || loadingOptions}
-            className="w-full bg-[#003366] text-white font-bold py-3.5 rounded-lg hover:bg-[#002244] transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-lg flex items-center justify-center gap-2 shadow-md mt-2"
+            className="w-full bg-[#73000a] text-white font-bold py-3.5 rounded-lg hover:bg-[#5a0008] transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-lg flex items-center justify-center gap-2 shadow-md mt-2"
           >
             {submitting ? (
               <>
@@ -485,7 +495,7 @@ export default function KioskPage() {
         </form>
       </div>
 
-      <p className="text-blue-300 text-xs mt-5">
+      <p className="text-red-200 text-xs mt-5">
         Need help? Ask the front desk staff for assistance.
       </p>
     </div>
