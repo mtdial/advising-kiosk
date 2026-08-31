@@ -195,11 +195,15 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           )}
 
           <div className={`text-sm font-mono font-semibold mt-1 ${
-            Math.floor((now - new Date(entry.checked_in_at).getTime()) / 60000) >= 15
-              ? 'text-red-500'
-              : 'text-[#73000a]'
+            entry.status === 'in-progress'
+              ? 'text-gray-500'
+              : Math.floor((now - new Date(entry.checked_in_at).getTime()) / 60000) >= 15
+                ? 'text-red-500'
+                : 'text-[#73000a]'
           }`}>
-            Waiting: {formatWait(entry.checked_in_at, now)}
+            Waiting: {entry.status === 'in-progress' && entry.in_progress_at
+              ? formatWaitFrozen(entry.checked_in_at, entry.in_progress_at)
+              : formatWait(entry.checked_in_at, now)}
           </div>
         </div>
 
@@ -420,15 +424,16 @@ export default function AdvisorPage() {
   const handleInProgress = async (id) => {
     const entry = queue.find((r) => r.id === id)
     const isNextAvailable = entry?.advisor_id === null
-    let query = supabase
-      .from('queue')
-      .update(isNextAvailable ? { status: 'in-progress', advisor_id: advisorId } : { status: 'in-progress' })
-      .eq('id', id)
+    const in_progress_at = new Date().toISOString()
+    const update = isNextAvailable
+      ? { status: 'in-progress', advisor_id: advisorId, in_progress_at }
+      : { status: 'in-progress', in_progress_at }
+    let query = supabase.from('queue').update(update).eq('id', id)
     if (isNextAvailable) query = query.is('advisor_id', null)
     const { error } = await query
     if (error) return
     setQueue((prev) => prev.map((r) => r.id === id
-      ? { ...r, status: 'in-progress', ...(isNextAvailable ? { advisor_id: advisorId } : {}) }
+      ? { ...r, status: 'in-progress', in_progress_at, ...(isNextAvailable ? { advisor_id: advisorId } : {}) }
       : r))
   }
 
@@ -453,7 +458,7 @@ export default function AdvisorPage() {
       <NavBar />
       <ToastList toasts={toasts} />
 
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
 
         {/* Office hours availability toggle */}
         <div className="flex items-center gap-4 bg-white rounded-xl shadow px-5 py-4 mb-6">
