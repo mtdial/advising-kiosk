@@ -95,7 +95,7 @@ function ToastList({ toasts }) {
   return (
     <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
-        <div key={t.id} className="bg-[#FFB300] text-[#73000a] text-sm px-4 py-3 rounded-xl shadow-xl flex items-start gap-2 max-w-xs animate-fade-in">
+        <div key={t.id} className="bg-[#CED318] text-[#73000a] text-sm px-4 py-3 rounded-xl shadow-xl flex items-start gap-2 max-w-xs animate-fade-in">
           <span className="mt-0.5">🔔</span>
           <span>{t.message}</span>
         </div>
@@ -147,7 +147,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
 
   return (
     <div className={`bg-white rounded-2xl shadow-sm border-l-4 px-6 py-5 transition-all ${
-      isInProgress ? 'border-[#FFB300] shadow-md' : 'border-gray-200'
+      isInProgress ? 'border-[#CED318] shadow-md' : 'border-gray-200'
     }`}>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
 
@@ -156,7 +156,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg font-bold text-gray-900">{entry.student_name}</span>
             {entry.appointment_type === 'Office Hours: Drop-In' ? (
-              <span className="text-xs font-bold bg-[#FFB300] text-[#73000a] px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-bold bg-[#CED318] text-[#73000a] px-2.5 py-0.5 rounded-full">
                 Office Hours: Drop-In
               </span>
             ) : (
@@ -208,7 +208,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           {entry.status === 'waiting' && (
             <button
               onClick={() => onInProgress(entry.id)}
-              className="bg-[#FFB300] text-[#73000a] font-bold px-5 py-2.5 rounded-xl hover:bg-[#e6a200] transition-colors text-sm shadow-sm w-full sm:w-auto"
+              className="bg-[#CED318] text-[#73000a] font-bold px-5 py-2.5 rounded-xl hover:bg-[#e6a200] transition-colors text-sm shadow-sm w-full sm:w-auto"
             >
               Waiting
             </button>
@@ -286,7 +286,7 @@ function SeenTodaySection({ advisorId, collegeId }) {
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
                     r.appointment_type === 'Office Hours: Drop-In'
-                      ? 'bg-[#FFB300]/20 text-[#73000a]'
+                      ? 'bg-[#CED318]/20 text-[#73000a]'
                       : 'bg-[#dce6f0] text-[#466A9F]'
                   }`}>
                     {r.appointment_type ?? '—'}

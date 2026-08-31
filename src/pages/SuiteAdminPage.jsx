@@ -20,7 +20,7 @@ function ApptBadge({ type }) {
   const isDropIn = type === 'Office Hours: Drop-In'
   return (
     <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
-      isDropIn ? 'bg-[#FFB300]/20 text-[#73000a]' : 'bg-[#dce6f0] text-[#466A9F]'
+      isDropIn ? 'bg-[#CED318]/20 text-[#73000a]' : 'bg-[#dce6f0] text-[#466A9F]'
     }`}>
       {type ?? '—'}
     </span>

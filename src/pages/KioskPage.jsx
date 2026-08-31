@@ -242,7 +242,7 @@ export default function KioskPage() {
     return (
       <div className="min-h-screen bg-[#73000a] flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-10 text-center">
-          <div className="w-24 h-24 rounded-full bg-[#FFB300] flex items-center justify-center mx-auto mb-6 shadow-lg">
+          <div className="w-24 h-24 rounded-full bg-[#CED318] flex items-center justify-center mx-auto mb-6 shadow-lg">
             <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
@@ -297,16 +297,16 @@ export default function KioskPage() {
         {/* Header */}
         <div className="bg-[#73000a] px-8 py-8 text-center">
           <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-8 h-px bg-[#FFB300]" />
-            <span className="text-[#FFB300] text-xs font-bold uppercase tracking-widest">
+            <div className="w-8 h-px bg-white" />
+            <span className="text-white text-xs font-bold uppercase tracking-widest">
               University of South Carolina
             </span>
-            <div className="w-8 h-px bg-[#FFB300]" />
+            <div className="w-8 h-px bg-white" />
           </div>
           <h1 className="text-3xl font-bold text-white leading-tight">
             Welcome to Academic Advising
           </h1>
-          <p className="text-red-200 mt-2 text-base">Please check in below.</p>
+          <p className="text-white mt-2 text-base">Please check in below.</p>
         </div>
 
         <form onSubmit={handleSubmit} noValidate className="px-8 py-7 space-y-5">

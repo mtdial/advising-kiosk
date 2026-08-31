@@ -42,7 +42,7 @@ function ChangePasswordModal({ onClose }) {
     }
   }
 
-  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#003366] focus:border-transparent'
+  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#73000a] focus:border-transparent'
 
   return (
     <div
@@ -54,7 +54,7 @@ function ChangePasswordModal({ onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold text-[#003366]">Change Password</h3>
+          <h3 className="text-lg font-bold text-[#73000a]">Change Password</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-xl leading-none"
@@ -70,7 +70,7 @@ function ChangePasswordModal({ onClose }) {
             </p>
             <button
               onClick={onClose}
-              className="w-full bg-[#003366] text-white font-semibold py-2.5 rounded-lg hover:bg-[#002244] transition-colors"
+              className="w-full bg-[#73000a] text-white font-semibold py-2.5 rounded-lg hover:bg-[#5a0008] transition-colors"
             >
               Close
             </button>
@@ -131,7 +131,7 @@ function ChangePasswordModal({ onClose }) {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-[#003366] text-white font-semibold py-2.5 rounded-lg hover:bg-[#002244] transition-colors disabled:opacity-60"
+                className="flex-1 bg-[#73000a] text-white font-semibold py-2.5 rounded-lg hover:bg-[#5a0008] transition-colors disabled:opacity-60"
               >
                 {saving ? 'Updating…' : 'Update Password'}
               </button>
@@ -173,11 +173,11 @@ export default function NavBar() {
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
 
-      <nav className="bg-[#003366] text-white px-6 py-4 flex items-center justify-between shadow-lg flex-wrap gap-3">
+      <nav className="bg-[#73000a] text-white px-6 py-4 flex items-center justify-between shadow-lg flex-wrap gap-3">
         {/* Left: app name + nav links */}
         <div className="flex items-center gap-5 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-1.5 h-7 bg-[#FFB300] rounded-full" />
+            <div className="w-1.5 h-7 bg-[#CED318] rounded-full" />
             <span className="font-bold text-lg tracking-tight">UAC Advising Kiosk</span>
           </div>
           {links.length > 1 && (
@@ -189,7 +189,7 @@ export default function NavBar() {
                   className={`text-sm px-3 py-1.5 rounded-lg transition-colors ${
                     location.pathname === l.to
                       ? 'bg-white/15 font-semibold'
-                      : 'text-blue-100 hover:bg-white/10 hover:text-white'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white'
                   }`}
                 >
                   {l.label}
@@ -204,19 +204,27 @@ export default function NavBar() {
           {advisorName && (
             <div className="flex items-center gap-2">
               {role === 'admin' && (
-                <span className="text-xs bg-[#FFB300] text-[#003366] font-bold px-2 py-0.5 rounded">
+                <span className="text-xs bg-[#CED318] text-[#73000a] font-bold px-2 py-0.5 rounded">
                   ADMIN
                 </span>
               )}
-              <span className="text-sm text-blue-100 hidden sm:block">{advisorName}</span>
+              <span className="text-sm text-white/80 hidden sm:block">{advisorName}</span>
             </div>
           )}
           <button
             onClick={() => setShowChangePassword(true)}
-            className="text-sm text-blue-200 hover:text-white transition-colors hidden sm:block"
+            className="text-sm text-white/60 hover:text-white transition-colors hidden sm:block"
           >
             Change Password
           </button>
+          <a
+            href="https://scribehow.com/o/r16bYYkQQhWW_FfHvrtsYg/page/UAC_Kiosk_Guide_for_Advisors__nENFf6naTF-IXQ_YL3NA9Q"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-white/60 hover:text-white transition-colors hidden sm:block"
+          >
+            Kiosk Guide
+          </a>
           <button
             onClick={handleSignOut}
             className="text-sm bg-white/10 hover:bg-white/20 px-4 py-1.5 rounded-lg transition-colors"

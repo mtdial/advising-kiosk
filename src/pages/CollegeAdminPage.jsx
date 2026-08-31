@@ -20,7 +20,7 @@ function formatWaitFrozen(checkedInAt, seenAt) {
 
 function ApptBadge({ type }) {
   if (type === 'Office Hours: Drop-In') {
-    return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#FFB300]/20 text-[#73000a]">{type}</span>
+    return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#CED318]/20 text-[#73000a]">{type}</span>
   }
   return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#dce6f0] text-[#466A9F]">{type ?? '—'}</span>
 }
@@ -53,7 +53,7 @@ function QueueTable({ rows, now, showAdvisor = true }) {
               </td>
               <td className="px-4 py-3">
                 {r.status === 'waiting' ? (
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#FFB300] text-[#73000a]">waiting</span>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#CED318] text-[#73000a]">waiting</span>
                 ) : (
                   <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#dce6f0] text-[#466A9F]">in-progress</span>
                 )}
