@@ -44,20 +44,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#003366] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#73000a] flex items-center justify-center p-6">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
 
         {/* Card header */}
-        <div className="bg-[#003366] px-8 py-7 text-center">
+        <div className="bg-[#73000a] px-8 py-7 text-center">
           <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-8 h-px bg-[#FFB300]" />
-            <span className="text-[#FFB300] text-xs font-bold uppercase tracking-widest">
+            <div className="w-8 h-px bg-white" />
+            <span className="text-white text-xs font-bold uppercase tracking-widest">
               University of South Carolina
             </span>
-            <div className="w-8 h-px bg-[#FFB300]" />
+            <div className="w-8 h-px bg-white" />
           </div>
           <h1 className="text-2xl font-bold text-white">Advisor Login</h1>
-          <p className="text-blue-200 mt-1 text-sm">UAC Advising Kiosk — Staff Portal</p>
+          <p className="text-white/60 mt-1 text-sm">UAC Advising Kiosk — Staff Portal</p>
         </div>
 
         {/* Form */}
@@ -72,7 +72,7 @@ export default function LoginPage() {
               onChange={(e) => { setEmail(e.target.value); setError('') }}
               placeholder="you@sc.edu"
               autoComplete="username"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#003366] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#73000a] focus:border-transparent"
             />
           </div>
 
@@ -86,7 +86,7 @@ export default function LoginPage() {
               onChange={(e) => { setPassword(e.target.value); setError('') }}
               placeholder="••••••••"
               autoComplete="current-password"
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#003366] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#73000a] focus:border-transparent"
             />
           </div>
 
@@ -99,7 +99,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={submitting || !email.trim() || !password}
-            className="w-full bg-[#003366] text-white font-semibold py-3 rounded-lg hover:bg-[#002244] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-[#73000a] text-white font-semibold py-3 rounded-lg hover:bg-[#570008] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {submitting ? (
               <>

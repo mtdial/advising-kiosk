@@ -46,7 +46,7 @@ function ApptBadge({ type }) {
   if (type === 'Office Hours: Drop-In') {
     return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#CED318]/20 text-[#73000a]">{type}</span>
   }
-  return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#dce6f0] text-[#466A9F]">{type ?? '—'}</span>
+  return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#466A9F]/15 text-[#466A9F]">{type ?? '—'}</span>
 }
 
 function StatusBadge({ status }) {
@@ -54,9 +54,9 @@ function StatusBadge({ status }) {
     return <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#CED318] text-[#73000a]">waiting</span>
   }
   if (status === 'in-progress') {
-    return <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#dce6f0] text-[#466A9F]">in-progress</span>
+    return <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#466A9F]/15 text-[#466A9F]">in-progress</span>
   }
-  return <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700">seen</span>
+  return <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#CED318]/20 text-[#65780B]">seen</span>
 }
 
 // ── Toggle switch ─────────────────────────────────────────────────────────────
@@ -307,11 +307,11 @@ function AddAdvisorTab({ colleges }) {
             </select>
           </div>
           {error   && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
-          {success && <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{success}</p>}
+          {success && <p className="text-sm text-[#65780B] bg-[#CED318]/10 border border-[#CED318]/30 rounded-lg px-3 py-2">{success}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#73000a] text-white font-semibold py-2.5 rounded-lg hover:bg-[#5a0008] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full bg-[#73000a] text-white font-semibold py-2.5 rounded-lg hover:bg-[#570008] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? 'Adding…' : 'Add Advisor'}
           </button>
@@ -416,7 +416,7 @@ John Doe,jdoe@sc.edu,College of Engineering and Computing,admin`}
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{result.error}</div>
           ) : (
             <div className="space-y-3">
-              <div className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 text-sm font-medium">
+              <div className="bg-[#CED318]/10 border border-[#CED318]/30 text-[#65780B] rounded-xl px-4 py-3 text-sm font-medium">
                 Upload complete: <strong>{result.added}</strong> advisor{result.added !== 1 ? 's' : ''} added
                 {result.skipped.length > 0 && <>, <strong>{result.skipped.length}</strong> skipped</>}
               </div>
@@ -582,7 +582,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-            <button type="submit" disabled={saving} className="flex-1 bg-[#73000a] text-white font-semibold py-2.5 rounded-lg hover:bg-[#5a0008] transition-colors disabled:opacity-60">
+            <button type="submit" disabled={saving} className="flex-1 bg-[#73000a] text-white font-semibold py-2.5 rounded-lg hover:bg-[#570008] transition-colors disabled:opacity-60">
               {saving ? 'Saving…' : 'Save Changes'}
             </button>
           </div>
@@ -675,7 +675,7 @@ function ManageAdvisorsTab({ colleges }) {
                   <td className="px-5 py-3 text-gray-600">{a.college?.name ?? '—'}</td>
                   <td className="px-5 py-3 text-gray-500 capitalize">{a.role}</td>
                   <td className="px-5 py-3">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${a.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${a.is_active ? 'bg-[#CED318]/20 text-[#65780B]' : 'bg-gray-100 text-gray-400'}`}>
                       {a.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
@@ -748,7 +748,7 @@ function ManageCollegesTab() {
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2.5">
                     <Toggle checked={c.is_active} onChange={() => toggleActive(c.id, c.is_active)} disabled={toggling === c.id + '_active'} />
-                    <span className={`text-xs font-semibold ${c.is_active ? 'text-green-700' : 'text-gray-400'}`}>{c.is_active ? 'Active' : 'Inactive'}</span>
+                    <span className={`text-xs font-semibold ${c.is_active ? 'text-[#65780B]' : 'text-gray-400'}`}>{c.is_active ? 'Active' : 'Inactive'}</span>
                   </div>
                 </td>
                 <td className="px-5 py-3">

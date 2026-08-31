@@ -128,8 +128,8 @@ function Toggle({ checked, onChange, disabled = false }) {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-5">
-        <svg className="w-10 h-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <div className="w-20 h-20 rounded-full bg-[#CED318]/20 flex items-center justify-center mb-5">
+        <svg className="w-10 h-10 text-[#65780B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       </div>
@@ -165,12 +165,12 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
               </span>
             )}
             {isNextAvailable && (
-              <span className="text-xs font-bold bg-purple-100 text-purple-700 px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-bold bg-[#466A9F]/20 text-[#466A9F] px-2.5 py-0.5 rounded-full">
                 Next Available
               </span>
             )}
             {isInProgress && (
-              <span className="text-xs font-semibold bg-[#dce6f0] text-[#466A9F] px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-semibold bg-[#466A9F]/15 text-[#466A9F] px-2.5 py-0.5 rounded-full">
                 In Progress
               </span>
             )}
@@ -188,7 +188,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           </div>
 
           {entry.notes && (
-            <div className="text-sm text-gray-600 mt-1 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <div className="text-sm text-gray-600 mt-1 bg-[#FFF2E3] border border-[#A49137]/30 rounded-lg px-3 py-2">
               <span className="font-medium text-gray-700">Notes: </span>
               {entry.notes}
             </div>
@@ -198,7 +198,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
             entry.status === 'in-progress'
               ? 'text-gray-500'
               : Math.floor((now - new Date(entry.checked_in_at).getTime()) / 60000) >= 15
-                ? 'text-red-500'
+                ? 'text-[#CC2E40]'
                 : 'text-[#73000a]'
           }`}>
             Waiting: {entry.status === 'in-progress' && entry.in_progress_at
@@ -212,7 +212,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           {entry.status === 'waiting' && (
             <button
               onClick={() => onInProgress(entry.id)}
-              className="bg-[#CED318] text-[#73000a] font-bold px-5 py-2.5 rounded-xl hover:bg-[#e6a200] transition-colors text-sm shadow-sm w-full sm:w-auto"
+              className="bg-[#CED318] text-[#73000a] font-bold px-5 py-2.5 rounded-xl hover:bg-[#65780B] transition-colors text-sm shadow-sm w-full sm:w-auto"
             >
               Waiting
             </button>
@@ -220,7 +220,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           {entry.status === 'in-progress' && (
             <button
               onClick={() => onSeen(entry.id)}
-              className="bg-green-600 text-white font-bold px-5 py-2.5 rounded-xl hover:bg-green-700 transition-colors text-sm shadow-sm w-full sm:w-auto"
+              className="bg-[#1F414D] text-white font-bold px-5 py-2.5 rounded-xl hover:bg-[#173035] transition-colors text-sm shadow-sm w-full sm:w-auto"
             >
               Mark as Seen
             </button>
@@ -291,7 +291,7 @@ function SeenTodaySection({ advisorId, collegeId }) {
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
                     r.appointment_type === 'Office Hours: Drop-In'
                       ? 'bg-[#CED318]/20 text-[#73000a]'
-                      : 'bg-[#dce6f0] text-[#466A9F]'
+                      : 'bg-[#466A9F]/15 text-[#466A9F]'
                   }`}>
                     {r.appointment_type ?? '—'}
                   </span>

@@ -15,7 +15,7 @@ export default function SignPage() {
     QRCode.toString(kioskUrl, {
       type: 'svg',
       margin: 0,
-      color: { dark: '#003366', light: '#ffffff' },
+      color: { dark: '#73000a', light: '#ffffff' },
     }).then(setQrSvg)
   }, [])
 
@@ -23,23 +23,23 @@ export default function SignPage() {
     <div className="min-h-screen bg-gray-100 print:bg-white flex flex-col items-center py-8 px-4 print:p-0">
       <button
         onClick={() => window.print()}
-        className="mb-6 bg-[#003366] text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-[#002244] transition-colors print:hidden"
+        className="mb-6 bg-[#73000a] text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-[#570008] transition-colors print:hidden"
       >
         Print Sign
       </button>
 
       {/* Printable sign — sized to fill a letter page */}
-      <div className="bg-white rounded-2xl shadow-2xl print:shadow-none print:rounded-none w-full max-w-3xl print:max-w-none border-8 border-[#003366] print:border-[12px] p-10 print:p-16 print:w-[8.5in] print:h-[11in] flex flex-col items-center text-center">
+      <div className="bg-white rounded-2xl shadow-2xl print:shadow-none print:rounded-none w-full max-w-3xl print:max-w-none border-8 border-[#73000a] print:border-[12px] p-10 print:p-16 print:w-[8.5in] print:h-[11in] flex flex-col items-center text-center">
 
         <div className="inline-flex items-center gap-3 mb-3">
-          <div className="w-10 h-px bg-[#FFB300]" />
-          <span className="text-[#FFB300] text-sm font-bold uppercase tracking-widest">
+          <div className="w-10 h-px bg-white" />
+          <span className="text-white text-sm font-bold uppercase tracking-widest">
             University of South Carolina
           </span>
-          <div className="w-10 h-px bg-[#FFB300]" />
+          <div className="w-10 h-px bg-white" />
         </div>
 
-        <h1 className="text-4xl print:text-5xl font-bold text-[#003366] leading-tight mb-2">
+        <h1 className="text-4xl print:text-5xl font-bold text-[#73000a] leading-tight mb-2">
           Advising Check-In
         </h1>
         <p className="text-gray-600 text-lg print:text-xl mb-8">
@@ -54,7 +54,7 @@ export default function SignPage() {
         <ol className="text-left space-y-3 max-w-md w-full mb-8">
           {STEPS.map((step, i) => (
             <li key={i} className="flex items-start gap-3">
-              <span className="flex-none w-7 h-7 rounded-full bg-[#003366] text-white text-sm font-bold flex items-center justify-center">
+              <span className="flex-none w-7 h-7 rounded-full bg-[#73000a] text-white text-sm font-bold flex items-center justify-center">
                 {i + 1}
               </span>
               <span className="text-gray-800 text-base print:text-lg pt-0.5">{step}</span>

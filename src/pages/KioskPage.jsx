@@ -280,7 +280,7 @@ export default function KioskPage() {
 
           <button
             onClick={handleReset}
-            className="w-full bg-[#73000a] text-white py-3 rounded-lg font-semibold hover:bg-[#5a0008] transition-colors"
+            className="w-full bg-[#73000a] text-white py-3 rounded-lg font-semibold hover:bg-[#570008] transition-colors"
           >
             Check In Another Student
           </button>
@@ -314,7 +314,7 @@ export default function KioskPage() {
           {/* 1. Full Name */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Student Full Name <span className="text-red-500">*</span>
+              Student Full Name <span className="text-[#CC2E40]">*</span>
             </label>
             <input
               type="text"
@@ -331,7 +331,7 @@ export default function KioskPage() {
           {/* 2. USC Email */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              USC Email <span className="text-red-500">*</span>
+              USC Email <span className="text-[#CC2E40]">*</span>
             </label>
             <input
               type="email"
@@ -349,7 +349,7 @@ export default function KioskPage() {
           {/* 3. Appointment Type */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Appointment Type <span className="text-red-500">*</span>
+              Appointment Type <span className="text-[#CC2E40]">*</span>
             </label>
             <select
               value={appointmentType}
@@ -368,7 +368,7 @@ export default function KioskPage() {
           {/* 4. College */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              College <span className="text-red-500">*</span>
+              College <span className="text-[#CC2E40]">*</span>
             </label>
             <select
               value={collegeId}
@@ -391,7 +391,7 @@ export default function KioskPage() {
           {showMajorDropdown && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Major <span className="text-red-500">*</span>
+                Major <span className="text-[#CC2E40]">*</span>
               </label>
               <select
                 value={majorId}
@@ -414,7 +414,7 @@ export default function KioskPage() {
           {/* 6. Advisor */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Select Your Advisor <span className="text-red-500">*</span>
+              Select Your Advisor <span className="text-[#CC2E40]">*</span>
             </label>
             <select
               value={advisorId}
@@ -478,7 +478,7 @@ export default function KioskPage() {
           <button
             type="submit"
             disabled={submitting || loadingOptions}
-            className="w-full bg-[#73000a] text-white font-bold py-3.5 rounded-lg hover:bg-[#5a0008] transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-lg flex items-center justify-center gap-2 shadow-md mt-2"
+            className="w-full bg-[#73000a] text-white font-bold py-3.5 rounded-lg hover:bg-[#570008] transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-lg flex items-center justify-center gap-2 shadow-md mt-2"
           >
             {submitting ? (
               <>
