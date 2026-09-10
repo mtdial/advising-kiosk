@@ -218,6 +218,14 @@ export default function NavBar() {
             Change Password
           </button>
           <a
+            href="https://advising-kiosk.pages.dev/kiosk"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-white/60 hover:text-white transition-colors hidden sm:block"
+          >
+            Student Kiosk
+          </a>
+          <a
             href="https://scribehow.com/o/r16bYYkQQhWW_FfHvrtsYg/page/UAC_Kiosk_Guide_for_Advisors__nENFf6naTF-IXQ_YL3NA9Q"
             target="_blank"
             rel="noopener noreferrer"

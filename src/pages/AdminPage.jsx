@@ -806,7 +806,7 @@ export default function AdminPage() {
               </button>
             ))}
           </div>
-          <a href="/sign" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[#73000a] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+          <a href="/advising-checkin-sign.pdf" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[#73000a] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
             🖨 Print Check-In Sign
           </a>
         </div>

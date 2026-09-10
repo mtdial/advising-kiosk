@@ -161,9 +161,14 @@ export default function CollegeAdminPage() {
             <h1 className="text-xl font-bold text-[#73000a]">College Queue</h1>
             <p className="text-sm text-gray-500 mt-0.5">{waitingRows.length} waiting · {inProgressRows.length} in progress</p>
           </div>
-          <button onClick={fetchQueue} className="text-sm border border-[#73000a] text-[#73000a] px-3 py-1.5 rounded-lg hover:bg-[#73000a] hover:text-white transition-colors">
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <a href="/advising-checkin-sign.pdf" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[#73000a] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+              🖨 Print Check-In Sign
+            </a>
+            <button onClick={fetchQueue} className="text-sm border border-[#73000a] text-[#73000a] px-3 py-1.5 rounded-lg hover:bg-[#73000a] hover:text-white transition-colors">
+              Refresh
+            </button>
+          </div>
         </div>
 
         {loading ? (
