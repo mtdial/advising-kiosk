@@ -95,6 +95,10 @@ create policy "Public read schools"
   using (true);
 
 grant select on public.schools to anon, authenticated;
+-- UPDATE is also needed at the table-privilege level, separate from (and in
+-- addition to) the RLS policy below — Postgres checks both, and a bare
+-- `create policy ... for update` alone is not enough without this grant.
+grant update on public.schools to authenticated;
 
 -- Only a campus admin (or full admin) may update a schools row, and only
 -- their OWN school. school_id is resolved server-side from the advisors row
