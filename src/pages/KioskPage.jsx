@@ -7,7 +7,7 @@ const DROP_IN_TYPE = 'Office Hours: Drop-In'
 const NEXT_AVAILABLE = 'next-available'
 
 const inputClass =
-  'w-full border rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[#73000a] focus:border-transparent transition-colors'
+  'w-full border rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors'
 const inputNormal = `${inputClass} border-gray-300`
 const inputError  = `${inputClass} border-red-400 bg-red-50`
 
@@ -240,15 +240,15 @@ export default function KioskPage() {
   if (step === 'success') {
     const pct = ((COUNTDOWN_SECONDS - countdown) / COUNTDOWN_SECONDS) * 100
     return (
-      <div className="min-h-screen bg-[#73000a] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[var(--nav-fill)] flex items-center justify-center p-6">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-10 text-center">
-          <div className="w-24 h-24 rounded-full bg-[#CED318] flex items-center justify-center mx-auto mb-6 shadow-lg">
+          <div className="w-24 h-24 rounded-full bg-[var(--accent)] flex items-center justify-center mx-auto mb-6 shadow-lg">
             <svg className="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
 
-          <h2 className="text-3xl font-bold text-[#73000a] mb-3">You're checked in!</h2>
+          <h2 className="text-3xl font-bold text-[var(--primary)] mb-3">You're checked in!</h2>
           <p className="text-gray-700 text-lg mb-2">
             Welcome, <span className="font-semibold">{checkedInName}</span>.
           </p>
@@ -262,14 +262,14 @@ export default function KioskPage() {
                 <circle cx="32" cy="32" r="28" fill="none" stroke="#e5e7eb" strokeWidth="4" />
                 <circle
                   cx="32" cy="32" r="28"
-                  fill="none" stroke="#73000a" strokeWidth="4"
+                  fill="none" stroke="var(--nav-fill)" strokeWidth="4"
                   strokeDasharray={`${2 * Math.PI * 28}`}
                   strokeDashoffset={`${2 * Math.PI * 28 * (1 - pct / 100)}`}
                   strokeLinecap="round"
                   style={{ transition: 'stroke-dashoffset 0.9s linear' }}
                 />
               </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-[#73000a]">
+              <span className="absolute inset-0 flex items-center justify-center text-xl font-bold text-[var(--primary)]">
                 {countdown}
               </span>
             </div>
@@ -280,7 +280,7 @@ export default function KioskPage() {
 
           <button
             onClick={handleReset}
-            className="w-full bg-[#73000a] text-white py-3 rounded-lg font-semibold hover:bg-[#570008] transition-colors"
+            className="w-full bg-[var(--nav-fill)] text-white py-3 rounded-lg font-semibold hover:bg-[var(--hover-color)] transition-colors"
           >
             Check In Another Student
           </button>
@@ -291,11 +291,11 @@ export default function KioskPage() {
 
   // ── Form ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#73000a] flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-[var(--nav-fill)] flex flex-col items-center justify-center p-6">
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
 
         {/* Header */}
-        <div className="bg-[#73000a] px-8 py-8 text-center">
+        <div className="bg-[var(--nav-fill)] px-8 py-8 text-center">
           <div className="inline-flex items-center gap-2 mb-4">
             <div className="w-8 h-px bg-white" />
             <span className="text-white text-xs font-bold uppercase tracking-widest">
@@ -454,7 +454,7 @@ export default function KioskPage() {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Anything you'd like your advisor to know before your appointment…"
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[#73000a] focus:border-transparent transition-colors resize-none"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors resize-none"
             />
           </div>
 
@@ -478,7 +478,7 @@ export default function KioskPage() {
           <button
             type="submit"
             disabled={submitting || loadingOptions}
-            className="w-full bg-[#73000a] text-white font-bold py-3.5 rounded-lg hover:bg-[#570008] transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-lg flex items-center justify-center gap-2 shadow-md mt-2"
+            className="w-full bg-[var(--nav-fill)] text-white font-bold py-3.5 rounded-lg hover:bg-[var(--hover-color)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed text-lg flex items-center justify-center gap-2 shadow-md mt-2"
           >
             {submitting ? (
               <>

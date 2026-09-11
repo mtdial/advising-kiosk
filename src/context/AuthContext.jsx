@@ -7,7 +7,7 @@ async function fetchAdvisorProfile(email) {
   if (!email) return null
   const { data } = await supabase
     .from('advisors')
-    .select('id, name, role, college_id, is_college_admin, is_suite_admin, ea_suite_admin')
+    .select('id, name, role, college_id, school_id, is_college_admin, is_suite_admin, ea_suite_admin, is_campus_admin')
     .eq('email', email.toLowerCase())
     .maybeSingle()
   return data ?? null
@@ -19,9 +19,11 @@ export function AuthProvider({ children }) {
   const [advisorId, setAdvisorId]       = useState(null)
   const [advisorName, setAdvisorName]   = useState(null)
   const [collegeId, setCollegeId]       = useState(null)
+  const [schoolId, setSchoolId]         = useState(null)
   const [isCollegeAdmin, setIsCollegeAdmin]   = useState(false)
   const [isSuiteAdmin, setIsSuiteAdmin]       = useState(false)
   const [isEASuiteAdmin, setIsEASuiteAdmin]   = useState(false)
+  const [isCampusAdmin, setIsCampusAdmin]     = useState(false)
   const [loading, setLoading]           = useState(true)
 
   const applyProfile = (profile) => {
@@ -29,9 +31,11 @@ export function AuthProvider({ children }) {
     setAdvisorId(profile?.id ?? null)
     setAdvisorName(profile?.name ?? null)
     setCollegeId(profile?.college_id ?? null)
+    setSchoolId(profile?.school_id ?? null)
     setIsCollegeAdmin(profile?.is_college_admin ?? false)
     setIsSuiteAdmin(profile?.is_suite_admin ?? false)
     setIsEASuiteAdmin(profile?.ea_suite_admin ?? false)
+    setIsCampusAdmin(profile?.is_campus_admin ?? false)
   }
 
   const clearProfile = () => {
@@ -39,9 +43,11 @@ export function AuthProvider({ children }) {
     setAdvisorId(null)
     setAdvisorName(null)
     setCollegeId(null)
+    setSchoolId(null)
     setIsCollegeAdmin(false)
     setIsSuiteAdmin(false)
     setIsEASuiteAdmin(false)
+    setIsCampusAdmin(false)
   }
 
   useEffect(() => {
@@ -79,6 +85,7 @@ export function AuthProvider({ children }) {
       isCollegeAdmin: profile?.is_college_admin ?? false,
       isSuiteAdmin:   profile?.is_suite_admin ?? false,
       isEASuiteAdmin: profile?.ea_suite_admin ?? false,
+      isCampusAdmin:  profile?.is_campus_admin ?? false,
     }
   }
 
@@ -86,8 +93,8 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, role, advisorId, advisorName, collegeId,
-      isCollegeAdmin, isSuiteAdmin, isEASuiteAdmin,
+      user, role, advisorId, advisorName, collegeId, schoolId,
+      isCollegeAdmin, isSuiteAdmin, isEASuiteAdmin, isCampusAdmin,
       loading, signIn, signOut,
     }}>
       {children}

@@ -95,7 +95,7 @@ function ToastList({ toasts }) {
   return (
     <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
-        <div key={t.id} className="bg-[#CED318] text-[#73000a] text-sm px-4 py-3 rounded-xl shadow-xl flex items-start gap-2 max-w-xs animate-fade-in">
+        <div key={t.id} className="bg-[var(--accent)] text-[var(--primary)] text-sm px-4 py-3 rounded-xl shadow-xl flex items-start gap-2 max-w-xs animate-fade-in">
           <span className="mt-0.5">🔔</span>
           <span>{t.message}</span>
         </div>
@@ -114,7 +114,7 @@ function Toggle({ checked, onChange, disabled = false }) {
       onClick={onChange}
       disabled={disabled}
       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${
-        checked ? 'bg-[#73000a]' : 'bg-gray-300'
+        checked ? 'bg-[var(--nav-fill)]' : 'bg-gray-300'
       }`}
     >
       <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
@@ -156,11 +156,11 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg font-bold text-gray-900">{entry.student_name}</span>
             {entry.appointment_type === 'Office Hours: Drop-In' ? (
-              <span className="text-xs font-bold bg-[#CED318] text-[#73000a] px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-bold bg-[var(--accent)] text-[var(--primary)] px-2.5 py-0.5 rounded-full">
                 Office Hours: Drop-In
               </span>
             ) : (
-              <span className="text-xs font-bold bg-[#73000a] text-white px-2.5 py-0.5 rounded-full">
+              <span className="text-xs font-bold bg-[var(--nav-fill)] text-white px-2.5 py-0.5 rounded-full">
                 Scheduled
               </span>
             )}
@@ -199,7 +199,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
               ? 'text-gray-500'
               : Math.floor((now - new Date(entry.checked_in_at).getTime()) / 60000) >= 15
                 ? 'text-[#CC2E40]'
-                : 'text-[#73000a]'
+                : 'text-[var(--primary)]'
           }`}>
             Waiting: {entry.status === 'in-progress' && entry.in_progress_at
               ? formatWaitFrozen(entry.checked_in_at, entry.in_progress_at)
@@ -212,7 +212,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
           {entry.status === 'waiting' && (
             <button
               onClick={() => onInProgress(entry.id)}
-              className="bg-[#CED318] text-[#73000a] font-bold px-5 py-2.5 rounded-xl hover:bg-[#65780B] transition-colors text-sm shadow-sm w-full sm:w-auto"
+              className="bg-[var(--accent)] text-[var(--primary)] font-bold px-5 py-2.5 rounded-xl hover:bg-[#65780B] transition-colors text-sm shadow-sm w-full sm:w-auto"
             >
               Waiting
             </button>
@@ -290,7 +290,7 @@ function SeenTodaySection({ advisorId, collegeId }) {
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
                     r.appointment_type === 'Office Hours: Drop-In'
-                      ? 'bg-[#CED318]/20 text-[#73000a]'
+                      ? 'bg-[#CED318]/20 text-[var(--primary)]'
                       : 'bg-[#466A9F]/15 text-[#466A9F]'
                   }`}>
                     {r.appointment_type ?? '—'}
@@ -480,14 +480,14 @@ export default function AdvisorPage() {
         {/* Heading + counters */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-[#73000a]">Your Queue</h1>
+            <h1 className="text-2xl font-bold text-[var(--primary)]">Your Queue</h1>
             {!loading && queue.length > 0 && (
               <p className="text-sm text-gray-500 mt-0.5">
                 {waitingCount} waiting · {inProgressCount} in progress
               </p>
             )}
           </div>
-          <a href="/advising-checkin-sign.pdf" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[#73000a] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+          <a href="/advising-checkin-sign.pdf" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[var(--primary)] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
             🖨 Print Check-In Sign
           </a>
         </div>

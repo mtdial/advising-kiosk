@@ -44,14 +44,19 @@ function parseCSV(text) {
 
 function ApptBadge({ type }) {
   if (type === 'Office Hours: Drop-In') {
-    return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#CED318]/20 text-[#73000a]">{type}</span>
+    return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#CED318]/20 text-[var(--primary)]">{type}</span>
   }
   return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#466A9F]/15 text-[#466A9F]">{type ?? '—'}</span>
 }
 
+const ROLE_LABELS = { platform_admin: 'Platform Admin', system_admin: 'System Admin', advisor: 'Advisor' }
+function formatRole(role) {
+  return ROLE_LABELS[role] ?? role
+}
+
 function StatusBadge({ status }) {
   if (status === 'waiting') {
-    return <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#CED318] text-[#73000a]">waiting</span>
+    return <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[var(--accent)] text-[var(--primary)]">waiting</span>
   }
   if (status === 'in-progress') {
     return <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#466A9F]/15 text-[#466A9F]">in-progress</span>
@@ -70,7 +75,7 @@ function Toggle({ checked, onChange, disabled = false }) {
       onClick={onChange}
       disabled={disabled}
       className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${
-        checked ? 'bg-[#73000a]' : 'bg-gray-300'
+        checked ? 'bg-[var(--nav-fill)]' : 'bg-gray-300'
       }`}
     >
       <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
@@ -101,7 +106,7 @@ const TABS = [
 
 // ── TAB 1 — Live Queue ────────────────────────────────────────────────────────
 
-function LiveQueueTab({ now }) {
+function LiveQueueTab({ now, isPlatformAdmin, schoolId }) {
   const [rows, setRows]         = useState([])
   const [seenRows, setSeenRows] = useState([])
   const [loading, setLoading]   = useState(true)
@@ -111,23 +116,27 @@ function LiveQueueTab({ now }) {
   }
 
   const fetchQueue = useCallback(async () => {
-    const [activeRes, seenRes] = await Promise.all([
-      supabase
-        .from('queue')
-        .select('*, college:colleges(name), advisor:advisors(name)')
-        .in('status', ['waiting', 'in-progress'])
-        .order('checked_in_at', { ascending: true }),
-      supabase
-        .from('queue')
-        .select('*, college:colleges(name), advisor:advisors(name)')
-        .eq('status', 'seen')
-        .gte('seen_at', todayStart().toISOString())
-        .order('seen_at', { ascending: false }),
-    ])
+    let activeQuery = supabase
+      .from('queue')
+      .select('*, college:colleges(name), advisor:advisors(name)')
+      .in('status', ['waiting', 'in-progress'])
+      .order('checked_in_at', { ascending: true })
+    let seenQuery = supabase
+      .from('queue')
+      .select('*, college:colleges(name), advisor:advisors(name)')
+      .eq('status', 'seen')
+      .gte('seen_at', todayStart().toISOString())
+      .order('seen_at', { ascending: false })
+    // A system_admin only ever sees their own school's queue. platform_admin sees everything.
+    if (!isPlatformAdmin && schoolId) {
+      activeQuery = activeQuery.eq('school_id', schoolId)
+      seenQuery   = seenQuery.eq('school_id', schoolId)
+    }
+    const [activeRes, seenRes] = await Promise.all([activeQuery, seenQuery])
     if (!activeRes.error) setRows(activeRes.data ?? [])
     if (!seenRes.error)   setSeenRows(seenRes.data ?? [])
     setLoading(false)
-  }, [])
+  }, [isPlatformAdmin, schoolId])
 
   useEffect(() => {
     fetchQueue()
@@ -146,10 +155,10 @@ function LiveQueueTab({ now }) {
       {/* Active queue */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-[#73000a]">Live Queue</h2>
+          <h2 className="text-xl font-bold text-[var(--primary)]">Live Queue</h2>
           <p className="text-sm text-gray-500 mt-0.5">{rows.length} active {rows.length === 1 ? 'entry' : 'entries'}</p>
         </div>
-        <button onClick={fetchQueue} className="text-sm border border-[#73000a] text-[#73000a] px-3 py-1.5 rounded-lg hover:bg-[#73000a] hover:text-white transition-colors">
+        <button onClick={fetchQueue} className="text-sm border border-[var(--link-color)] text-[var(--primary)] px-3 py-1.5 rounded-lg hover:bg-[var(--link-color)] hover:text-white transition-colors">
           Refresh
         </button>
       </div>
@@ -247,7 +256,7 @@ async function callCreateAdvisor({ name, email, college_id, role }) {
 
 // ── TAB 2 — Add Advisor ───────────────────────────────────────────────────────
 
-function AddAdvisorTab({ colleges }) {
+function AddAdvisorTab({ colleges, isPlatformAdmin }) {
   const blank = { name: '', email: '', college_id: '', role: 'advisor' }
   const [form, setForm]       = useState(blank)
   const [loading, setLoading] = useState(false)
@@ -277,11 +286,11 @@ function AddAdvisorTab({ colleges }) {
     }
   }
 
-  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#73000a] focus:border-transparent'
+  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent'
 
   return (
     <div className="max-w-lg">
-      <h2 className="text-xl font-bold text-[#73000a] mb-5">Add Advisor</h2>
+      <h2 className="text-xl font-bold text-[var(--primary)] mb-5">Add Advisor</h2>
       <div className="bg-white rounded-xl shadow p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -303,7 +312,8 @@ function AddAdvisorTab({ colleges }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
             <select value={form.role} onChange={set('role')} className={`${inputCls} bg-white`}>
               <option value="advisor">Advisor</option>
-              <option value="admin">Admin</option>
+              <option value="system_admin">System Admin</option>
+              {isPlatformAdmin && <option value="platform_admin">Platform Admin</option>}
             </select>
           </div>
           {error   && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
@@ -311,7 +321,7 @@ function AddAdvisorTab({ colleges }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#73000a] text-white font-semibold py-2.5 rounded-lg hover:bg-[#570008] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full bg-[var(--nav-fill)] text-white font-semibold py-2.5 rounded-lg hover:bg-[var(--hover-color)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading ? 'Adding…' : 'Add Advisor'}
           </button>
@@ -344,7 +354,8 @@ function BulkUploadTab({ colleges }) {
         const name  = row.name?.trim()
         const email = row.email?.trim().toLowerCase()
         const collegeName = (row.college_name || row.college)?.trim()
-        const role  = row.role?.trim() || 'advisor'
+        const roleRaw = row.role?.trim() || 'advisor'
+        const role  = roleRaw.toLowerCase() === 'admin' ? 'system_admin' : roleRaw
         if (!name || !email) { skipped.push({ row: email || name || '(empty)', reason: 'Missing name or email' }); continue }
         if (existingEmails.has(email)) { skipped.push({ row: email, reason: 'Email already exists' }); continue }
         let college_id = null
@@ -380,13 +391,13 @@ function BulkUploadTab({ colleges }) {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-xl font-bold text-[#73000a] mb-5">Bulk Upload Advisors</h2>
+      <h2 className="text-xl font-bold text-[var(--primary)] mb-5">Bulk Upload Advisors</h2>
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-5">
         <p className="text-sm font-semibold text-gray-700 mb-2">Expected CSV format:</p>
         <pre className="text-xs text-gray-600 font-mono leading-relaxed">
 {`name,email,college_name,role
 Jane Smith,jsmith@sc.edu,College of Arts and Sciences,advisor
-John Doe,jdoe@sc.edu,College of Engineering and Computing,admin`}
+John Doe,jdoe@sc.edu,College of Engineering and Computing,system_admin`}
         </pre>
         <p className="text-xs text-gray-400 mt-2">
           <span className="font-medium">college_name</span> (or <span className="font-medium">college</span>) must exactly match a college name in Supabase.
@@ -398,7 +409,7 @@ John Doe,jdoe@sc.edu,College of Engineering and Computing,admin`}
         onDrop={handleDrop}
         onClick={() => !processing && inputRef.current?.click()}
         className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-colors ${
-          dragging ? 'border-[#73000a] bg-red-50' : 'border-gray-300 hover:border-[#73000a] hover:bg-gray-50'
+          dragging ? 'border-[var(--link-color)] bg-red-50' : 'border-gray-300 hover:border-[var(--link-color)] hover:bg-gray-50'
         } ${processing ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <input ref={inputRef} type="file" accept=".csv,text/csv" onChange={(e) => processFile(e.target.files[0])} disabled={processing} className="hidden" />
@@ -443,7 +454,7 @@ John Doe,jdoe@sc.edu,College of Engineering and Computing,admin`}
 
 // ── Edit Advisor Modal ────────────────────────────────────────────────────────
 
-function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
+function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin }) {
   const [form, setForm] = useState({
     name:             advisor.name,
     email:            advisor.email,
@@ -455,6 +466,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
     is_suite_admin:   advisor.is_suite_admin ?? false,
     ea_suite:         advisor.ea_suite ?? false,
     ea_suite_admin:   advisor.ea_suite_admin ?? false,
+    is_campus_admin:  advisor.is_campus_admin ?? false,
   })
   const [saving, setSaving]                   = useState(false)
   const [error, setError]                     = useState('')
@@ -501,6 +513,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
       is_suite_admin:   form.is_suite_admin,
       ea_suite:         form.ea_suite,
       ea_suite_admin:   form.ea_suite_admin,
+      is_campus_admin:  form.is_campus_admin,
     }).eq('id', advisor.id)
     if (dbErr) { setSaving(false); setError(dbErr.code === '23505' ? 'That email is already in use.' : dbErr.message); return }
     await supabase.from('advisor_majors').delete().eq('advisor_id', advisor.id)
@@ -511,7 +524,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
     onSaved({ ...advisor, ...form, college_id: form.college_id || null, college: colleges.find((c) => c.id === form.college_id) ?? null })
   }
 
-  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#73000a] focus:border-transparent'
+  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent'
   const TOGGLES = [
     { key: 'is_active',        label: 'Active' },
     { key: 'is_college_admin', label: 'College Admin' },
@@ -519,13 +532,14 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
     { key: 'is_suite_admin',   label: 'Suite Admin' },
     { key: 'ea_suite',         label: 'EA Suite' },
     { key: 'ea_suite_admin',   label: 'EA Suite Admin' },
+    { key: 'is_campus_admin',  label: 'Campus Admin (Theme Settings)' },
   ]
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold text-[#73000a]">Edit Advisor</h3>
+          <h3 className="text-lg font-bold text-[var(--primary)]">Edit Advisor</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSave} className="space-y-4">
@@ -542,7 +556,8 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
             <select value={form.role} onChange={set('role')} className={`${inputCls} bg-white`}>
               <option value="advisor">Advisor</option>
-              <option value="admin">Admin</option>
+              <option value="system_admin">System Admin</option>
+              {(isPlatformAdmin || advisor.role === 'platform_admin') && <option value="platform_admin">Platform Admin</option>}
             </select>
           </div>
           <div>
@@ -570,7 +585,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
                         checked={assignedMajorIds.has(m.id)}
                         onChange={() => toggleMajor(m.id)}
                         disabled={saving}
-                        className="h-4 w-4 rounded border-gray-300 text-[#73000a] focus:ring-[#73000a]"
+                        className="h-4 w-4 rounded border-gray-300 text-[var(--primary)] focus:ring-[var(--primary)]"
                       />
                       <span className="text-sm text-gray-700">{m.name}</span>
                     </label>
@@ -582,7 +597,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-            <button type="submit" disabled={saving} className="flex-1 bg-[#73000a] text-white font-semibold py-2.5 rounded-lg hover:bg-[#570008] transition-colors disabled:opacity-60">
+            <button type="submit" disabled={saving} className="flex-1 bg-[var(--nav-fill)] text-white font-semibold py-2.5 rounded-lg hover:bg-[var(--hover-color)] transition-colors disabled:opacity-60">
               {saving ? 'Saving…' : 'Save Changes'}
             </button>
           </div>
@@ -594,7 +609,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
 
 // ── TAB 4 — Manage Advisors ───────────────────────────────────────────────────
 
-function ManageAdvisorsTab({ colleges }) {
+function ManageAdvisorsTab({ colleges, isPlatformAdmin, schoolId }) {
   const [advisors, setAdvisors] = useState([])
   const [loading, setLoading]   = useState(true)
   const [editing, setEditing]   = useState(null)
@@ -602,10 +617,12 @@ function ManageAdvisorsTab({ colleges }) {
   const [sortDir, setSortDir]   = useState('asc')
 
   const fetchAdvisors = useCallback(async () => {
-    const { data } = await supabase.from('advisors').select('*, college:colleges(name)')
+    let query = supabase.from('advisors').select('*, college:colleges(name)')
+    if (!isPlatformAdmin && schoolId) query = query.eq('school_id', schoolId)
+    const { data } = await query
     setAdvisors(data ?? [])
     setLoading(false)
-  }, [])
+  }, [isPlatformAdmin, schoolId])
 
   useEffect(() => { fetchAdvisors() }, [fetchAdvisors])
 
@@ -631,26 +648,26 @@ function ManageAdvisorsTab({ colleges }) {
   if (loading) return <div className="py-20 text-center text-gray-400">Loading advisors…</div>
 
   const SortArrow = ({ col }) => (
-    <span className={`ml-1 text-xs ${sortKey === col ? 'text-[#73000a]' : 'text-gray-300'}`}>
+    <span className={`ml-1 text-xs ${sortKey === col ? 'text-[var(--primary)]' : 'text-gray-300'}`}>
       {sortKey === col ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
     </span>
   )
 
   const sortTh = (label, key) => (
-    <th key={key} onClick={() => toggleSort(key)} className="px-5 py-3 text-gray-600 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-[#73000a] hover:bg-gray-100 transition-colors">
+    <th key={key} onClick={() => toggleSort(key)} className="px-5 py-3 text-gray-600 font-semibold whitespace-nowrap cursor-pointer select-none hover:text-[var(--link-color)] hover:bg-gray-100 transition-colors">
       {label}<SortArrow col={key} />
     </th>
   )
 
   return (
     <div>
-      {editing && <EditAdvisorModal advisor={editing} colleges={colleges} onClose={() => setEditing(null)} onSaved={handleSaved} />}
+      {editing && <EditAdvisorModal advisor={editing} colleges={colleges} onClose={() => setEditing(null)} onSaved={handleSaved} isPlatformAdmin={isPlatformAdmin} />}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-[#73000a]">Manage Advisors</h2>
+          <h2 className="text-xl font-bold text-[var(--primary)]">Manage Advisors</h2>
           <p className="text-sm text-gray-500 mt-0.5">{advisors.length} total advisors</p>
         </div>
-        <button onClick={fetchAdvisors} className="text-sm border border-[#73000a] text-[#73000a] px-3 py-1.5 rounded-lg hover:bg-[#73000a] hover:text-white transition-colors">Refresh</button>
+        <button onClick={fetchAdvisors} className="text-sm border border-[var(--link-color)] text-[var(--primary)] px-3 py-1.5 rounded-lg hover:bg-[var(--link-color)] hover:text-white transition-colors">Refresh</button>
       </div>
       {advisors.length === 0 ? (
         <div className="bg-white rounded-xl shadow p-12 text-center text-gray-400">No advisors found.</div>
@@ -673,14 +690,14 @@ function ManageAdvisorsTab({ colleges }) {
                   <td className="px-5 py-3 font-medium text-gray-800">{a.name}</td>
                   <td className="px-5 py-3 text-gray-500">{a.email}</td>
                   <td className="px-5 py-3 text-gray-600">{a.college?.name ?? '—'}</td>
-                  <td className="px-5 py-3 text-gray-500 capitalize">{a.role}</td>
+                  <td className="px-5 py-3 text-gray-500">{formatRole(a.role)}</td>
                   <td className="px-5 py-3">
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${a.is_active ? 'bg-[#CED318]/20 text-[#65780B]' : 'bg-gray-100 text-gray-400'}`}>
                       {a.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="px-5 py-3">
-                    <button onClick={() => setEditing(a)} className="text-xs font-semibold text-[#73000a] border border-[#73000a] px-3 py-1 rounded-lg hover:bg-[#73000a] hover:text-white transition-colors">Edit</button>
+                    <button onClick={() => setEditing(a)} className="text-xs font-semibold text-[var(--primary)] border border-[var(--link-color)] px-3 py-1 rounded-lg hover:bg-[var(--link-color)] hover:text-white transition-colors">Edit</button>
                   </td>
                 </tr>
               ))}
@@ -694,16 +711,18 @@ function ManageAdvisorsTab({ colleges }) {
 
 // ── TAB 5 — Manage Colleges ───────────────────────────────────────────────────
 
-function ManageCollegesTab() {
+function ManageCollegesTab({ isPlatformAdmin, schoolId }) {
   const [colleges, setColleges] = useState([])
   const [loading, setLoading]   = useState(true)
   const [toggling, setToggling] = useState(null)
 
   const fetchColleges = useCallback(async () => {
-    const { data } = await supabase.from('colleges').select('*').order('name', { ascending: true })
+    let query = supabase.from('colleges').select('*').order('name', { ascending: true })
+    if (!isPlatformAdmin && schoolId) query = query.eq('school_id', schoolId)
+    const { data } = await query
     setColleges(data ?? [])
     setLoading(false)
-  }, [])
+  }, [isPlatformAdmin, schoolId])
 
   useEffect(() => { fetchColleges() }, [fetchColleges])
 
@@ -727,10 +746,10 @@ function ManageCollegesTab() {
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-xl font-bold text-[#73000a]">Manage Colleges</h2>
+          <h2 className="text-xl font-bold text-[var(--primary)]">Manage Colleges</h2>
           <p className="text-sm text-gray-500 mt-0.5">Active colleges appear in the kiosk dropdown. Add or remove colleges directly in Supabase.</p>
         </div>
-        <button onClick={fetchColleges} className="text-sm border border-[#73000a] text-[#73000a] px-3 py-1.5 rounded-lg hover:bg-[#73000a] hover:text-white transition-colors">Refresh</button>
+        <button onClick={fetchColleges} className="text-sm border border-[var(--link-color)] text-[var(--primary)] px-3 py-1.5 rounded-lg hover:bg-[var(--link-color)] hover:text-white transition-colors">Refresh</button>
       </div>
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="w-full text-sm">
@@ -769,7 +788,8 @@ function ManageCollegesTab() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
-  const { user } = useAuth()
+  const { user, role, schoolId } = useAuth()
+  const isPlatformAdmin = role === 'platform_admin'
   const [activeTab, setActiveTab] = useState('queue')
   const [colleges, setColleges]   = useState([])
   const [now, setNow]             = useState(Date.now())
@@ -780,13 +800,15 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => {
-    supabase
+    let query = supabase
       .from('colleges')
-      .select('id, name')
+      .select('id, name, school_id')
       .eq('is_active', true)
       .order('name', { ascending: true })
-      .then(({ data }) => setColleges(data ?? []))
-  }, [])
+    // A system_admin only ever sees their own school's colleges. platform_admin sees everything.
+    if (!isPlatformAdmin && schoolId) query = query.eq('school_id', schoolId)
+    query.then(({ data }) => setColleges(data ?? []))
+  }, [isPlatformAdmin, schoolId])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -799,22 +821,22 @@ export default function AdminPage() {
                 key={id}
                 onClick={() => setActiveTab(id)}
                 className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                  activeTab === id ? 'bg-[#73000a] text-white' : 'text-gray-600 hover:text-[#73000a]'
+                  activeTab === id ? 'bg-[var(--nav-fill)] text-white' : 'text-gray-600 hover:text-[var(--link-color)]'
                 }`}
               >
                 {label}
               </button>
             ))}
           </div>
-          <a href="/advising-checkin-sign.pdf" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[#73000a] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+          <a href="/advising-checkin-sign.pdf" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[var(--primary)] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
             🖨 Print Check-In Sign
           </a>
         </div>
-        {activeTab === 'queue'    && <LiveQueueTab now={now} />}
-        {activeTab === 'add'      && <AddAdvisorTab colleges={colleges} />}
+        {activeTab === 'queue'    && <LiveQueueTab now={now} isPlatformAdmin={isPlatformAdmin} schoolId={schoolId} />}
+        {activeTab === 'add'      && <AddAdvisorTab colleges={colleges} isPlatformAdmin={isPlatformAdmin} />}
         {activeTab === 'bulk'     && <BulkUploadTab colleges={colleges} />}
-        {activeTab === 'advisors' && <ManageAdvisorsTab colleges={colleges} />}
-        {activeTab === 'colleges' && <ManageCollegesTab />}
+        {activeTab === 'advisors' && <ManageAdvisorsTab colleges={colleges} isPlatformAdmin={isPlatformAdmin} schoolId={schoolId} />}
+        {activeTab === 'colleges' && <ManageCollegesTab isPlatformAdmin={isPlatformAdmin} schoolId={schoolId} />}
       </div>
     </div>
   )

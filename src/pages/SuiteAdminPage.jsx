@@ -20,7 +20,7 @@ function ApptBadge({ type }) {
   const isDropIn = type === 'Office Hours: Drop-In'
   return (
     <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
-      isDropIn ? 'bg-[#CED318]/20 text-[#73000a]' : 'bg-[#466A9F]/15 text-[#466A9F]'
+      isDropIn ? 'bg-[#CED318]/20 text-[var(--primary)]' : 'bg-[#466A9F]/15 text-[#466A9F]'
     }`}>
       {type ?? '—'}
     </span>
@@ -155,18 +155,18 @@ export default function SuiteAdminPage() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-xl font-bold text-[#73000a]">UAC Suite Queue</h1>
+            <h1 className="text-xl font-bold text-[var(--primary)]">UAC Suite Queue</h1>
             <p className="text-sm text-gray-500 mt-0.5">
               {totalActive} active {totalActive === 1 ? 'entry' : 'entries'}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <a href="/advising-checkin-sign.pdf" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[#73000a] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+            <a href="/advising-checkin-sign.pdf" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[var(--primary)] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
               🖨 Print Check-In Sign
             </a>
             <button
               onClick={fetchQueue}
-              className="text-sm border border-[#73000a] text-[#73000a] px-3 py-1.5 rounded-lg hover:bg-[#73000a] hover:text-white transition-colors"
+              className="text-sm border border-[var(--link-color)] text-[var(--primary)] px-3 py-1.5 rounded-lg hover:bg-[var(--link-color)] hover:text-white transition-colors"
             >
               Refresh
             </button>
