@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useAdminScope } from '../context/AdminScopeContext'
 import { supabase } from '../supabase'
 import NavBar from '../components/NavBar'
 
@@ -46,8 +47,13 @@ function ColorField({ label, hint, value, onChange }) {
 }
 
 export default function ThemeSettingsPage() {
-  const { schoolId } = useAuth()
+  const { schoolId: ownSchoolId } = useAuth()
   const { refresh } = useTheme() ?? {}
+  const { isPlatformAdmin, isAllSchools, effectiveSchoolId } = useAdminScope() ?? {}
+  // A platform_admin edits whichever school the switcher points at; everyone
+  // else always edits their own -- the RLS policy re-checks this server-side
+  // regardless of what's picked here.
+  const schoolId = isPlatformAdmin ? effectiveSchoolId : ownSchoolId
 
   const [loading, setLoading]   = useState(true)
   const [form, setForm]         = useState(null)
@@ -58,7 +64,8 @@ export default function ThemeSettingsPage() {
   const [success, setSuccess]   = useState('')
 
   useEffect(() => {
-    if (!schoolId) return
+    if (!schoolId) { setLoading(false); return }
+    setLoading(true)
     supabase
       .from('schools')
       .select('*')
@@ -70,6 +77,20 @@ export default function ThemeSettingsPage() {
         setLoading(false)
       })
   }, [schoolId])
+
+  if (isPlatformAdmin && isAllSchools) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <NavBar />
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <h1 className="text-xl font-bold text-[var(--primary)] mb-1">Theme Settings</h1>
+          <div className="bg-white rounded-xl shadow p-8 text-center text-gray-400 mt-6">
+            Pick a specific school from the switcher up top -- theme editing targets one school at a time.
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const set = (key) => (value) => { setForm((f) => ({ ...f, [key]: value })); setError(''); setSuccess('') }
 

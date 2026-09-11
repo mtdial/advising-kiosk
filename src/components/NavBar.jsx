@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useAdminScope } from '../context/AdminScopeContext'
 import { supabase } from '../supabase'
 
 // ── Change Password Modal ─────────────────────────────────────────────────────
@@ -162,6 +163,7 @@ export default function NavBar() {
   const auth = useAuth()
   const { advisorName, role, signOut } = auth
   const { logoUrl, schoolName } = useTheme() ?? {}
+  const { isPlatformAdmin, schools, selectedSchoolId, setSelectedSchoolId } = useAdminScope() ?? {}
   const navigate = useNavigate()
   const location = useLocation()
   const [showChangePassword, setShowChangePassword] = useState(false)
@@ -214,9 +216,22 @@ export default function NavBar() {
           {advisorName && (
             <div className="flex items-center gap-2">
               {role === 'platform_admin' && (
-                <span className="text-xs bg-[var(--accent)] text-[var(--primary)] font-bold px-2 py-0.5 rounded">
-                  PLATFORM ADMIN
-                </span>
+                <>
+                  <span className="text-xs bg-[var(--accent)] text-[var(--primary)] font-bold px-2 py-0.5 rounded">
+                    PLATFORM ADMIN
+                  </span>
+                  <select
+                    value={selectedSchoolId || ''}
+                    onChange={(e) => setSelectedSchoolId?.(e.target.value)}
+                    title="Which school's data you're viewing"
+                    className="text-xs bg-white/10 border border-white/20 text-white rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-white/40"
+                  >
+                    <option value="all" className="text-gray-800">All Schools</option>
+                    {(schools ?? []).map((s) => (
+                      <option key={s.id} value={s.id} className="text-gray-800">{s.name}</option>
+                    ))}
+                  </select>
+                </>
               )}
               {role === 'system_admin' && (
                 <span className="text-xs bg-[var(--accent)] text-[var(--primary)] font-bold px-2 py-0.5 rounded">

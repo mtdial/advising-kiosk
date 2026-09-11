@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAuth } from '../context/AuthContext'
+import { useAdminScope } from '../context/AdminScopeContext'
 import { supabase } from '../supabase'
 import NavBar from '../components/NavBar'
 
@@ -106,7 +106,7 @@ const TABS = [
 
 // ── TAB 1 — Live Queue ────────────────────────────────────────────────────────
 
-function LiveQueueTab({ now, isPlatformAdmin, schoolId }) {
+function LiveQueueTab({ now, effectiveSchoolId, isAllSchools }) {
   const [rows, setRows]         = useState([])
   const [seenRows, setSeenRows] = useState([])
   const [loading, setLoading]   = useState(true)
@@ -118,25 +118,26 @@ function LiveQueueTab({ now, isPlatformAdmin, schoolId }) {
   const fetchQueue = useCallback(async () => {
     let activeQuery = supabase
       .from('queue')
-      .select('*, college:colleges(name), advisor:advisors(name)')
+      .select('*, college:colleges(name), advisor:advisors(name), school:schools(name)')
       .in('status', ['waiting', 'in-progress'])
       .order('checked_in_at', { ascending: true })
     let seenQuery = supabase
       .from('queue')
-      .select('*, college:colleges(name), advisor:advisors(name)')
+      .select('*, college:colleges(name), advisor:advisors(name), school:schools(name)')
       .eq('status', 'seen')
       .gte('seen_at', todayStart().toISOString())
       .order('seen_at', { ascending: false })
-    // A system_admin only ever sees their own school's queue. platform_admin sees everything.
-    if (!isPlatformAdmin && schoolId) {
-      activeQuery = activeQuery.eq('school_id', schoolId)
-      seenQuery   = seenQuery.eq('school_id', schoolId)
+    // effectiveSchoolId is already resolved to "own school" for a system_admin,
+    // "chosen school" or null ("All Schools") for a platform_admin.
+    if (effectiveSchoolId) {
+      activeQuery = activeQuery.eq('school_id', effectiveSchoolId)
+      seenQuery   = seenQuery.eq('school_id', effectiveSchoolId)
     }
     const [activeRes, seenRes] = await Promise.all([activeQuery, seenQuery])
     if (!activeRes.error) setRows(activeRes.data ?? [])
     if (!seenRes.error)   setSeenRows(seenRes.data ?? [])
     setLoading(false)
-  }, [isPlatformAdmin, schoolId])
+  }, [effectiveSchoolId])
 
   useEffect(() => {
     fetchQueue()
@@ -172,7 +173,10 @@ function LiveQueueTab({ now, isPlatformAdmin, schoolId }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                {['Student Name', 'Student Email', 'College', 'Advisor', 'Appt Type', 'Wait Time', 'Status', 'Notes'].map((h) => (
+                {[
+                  ...(isAllSchools ? ['School'] : []),
+                  'Student Name', 'Student Email', 'College', 'Advisor', 'Appt Type', 'Wait Time', 'Status', 'Notes',
+                ].map((h) => (
                   <th key={h} className="px-4 py-3 text-gray-600 font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -180,6 +184,7 @@ function LiveQueueTab({ now, isPlatformAdmin, schoolId }) {
             <tbody>
               {rows.map((r, i) => (
                 <tr key={r.id} className={`border-b border-gray-100 ${i % 2 ? 'bg-gray-50' : ''}`}>
+                  {isAllSchools && <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.school?.name ?? '—'}</td>}
                   <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">{r.student_name}</td>
                   <td className="px-4 py-3 text-gray-500">{r.student_email}</td>
                   <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.college?.name ?? '—'}</td>
@@ -209,7 +214,10 @@ function LiveQueueTab({ now, isPlatformAdmin, schoolId }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                  {['Student Name', 'Student Email', 'College', 'Advisor', 'Appt Type', 'Wait Time', 'Notes'].map((h) => (
+                  {[
+                    ...(isAllSchools ? ['School'] : []),
+                    'Student Name', 'Student Email', 'College', 'Advisor', 'Appt Type', 'Wait Time', 'Notes',
+                  ].map((h) => (
                     <th key={h} className="px-4 py-3 text-gray-600 font-semibold whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -217,6 +225,7 @@ function LiveQueueTab({ now, isPlatformAdmin, schoolId }) {
               <tbody>
                 {seenRows.map((r, i) => (
                   <tr key={r.id} className={`border-b border-gray-100 ${i % 2 ? 'bg-gray-50' : ''}`}>
+                    {isAllSchools && <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{r.school?.name ?? '—'}</td>}
                     <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">{r.student_name}</td>
                     <td className="px-4 py-3 text-gray-500">{r.student_email}</td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{r.college?.name ?? '—'}</td>
@@ -243,10 +252,10 @@ function LiveQueueTab({ now, isPlatformAdmin, schoolId }) {
 
 // ── Shared: call create-advisor edge function ─────────────────────────────────
 
-async function callCreateAdvisor({ name, email, college_id, role }) {
+async function callCreateAdvisor({ name, email, college_id, role, school_id }) {
   const { data: { session } } = await supabase.auth.getSession()
   const { data, error } = await supabase.functions.invoke('create-advisor', {
-    body: { name, email, college_id: college_id || null, role: role || 'advisor' },
+    body: { name, email, college_id: college_id || null, role: role || 'advisor', school_id: school_id || null },
     headers: { Authorization: `Bearer ${session?.access_token}` },
   })
   if (error) throw new Error(error.message)
@@ -256,7 +265,7 @@ async function callCreateAdvisor({ name, email, college_id, role }) {
 
 // ── TAB 2 — Add Advisor ───────────────────────────────────────────────────────
 
-function AddAdvisorTab({ colleges, isPlatformAdmin }) {
+function AddAdvisorTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAllSchools }) {
   const blank = { name: '', email: '', college_id: '', role: 'advisor' }
   const [form, setForm]       = useState(blank)
   const [loading, setLoading] = useState(false)
@@ -276,6 +285,7 @@ function AddAdvisorTab({ colleges, isPlatformAdmin }) {
         email:      form.email.trim().toLowerCase(),
         college_id: form.college_id || null,
         role:       form.role,
+        school_id:  effectiveSchoolId,
       })
       setSuccess(`Advisor added! They can now log in with the default password.`)
       setForm(blank)
@@ -287,6 +297,17 @@ function AddAdvisorTab({ colleges, isPlatformAdmin }) {
   }
 
   const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent'
+
+  if (isAllSchools) {
+    return (
+      <div className="max-w-lg">
+        <h2 className="text-xl font-bold text-[var(--primary)] mb-5">Add Advisor</h2>
+        <div className="bg-white rounded-xl shadow p-8 text-center text-gray-400">
+          Pick a specific school from the switcher up top before adding an advisor — "All Schools" isn't a valid target for a new advisor.
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-lg">
@@ -333,7 +354,7 @@ function AddAdvisorTab({ colleges, isPlatformAdmin }) {
 
 // ── TAB 3 — Bulk Upload ───────────────────────────────────────────────────────
 
-function BulkUploadTab({ colleges }) {
+function BulkUploadTab({ colleges, effectiveSchoolId, isAllSchools }) {
   const [dragging, setDragging]     = useState(false)
   const [processing, setProcessing] = useState(false)
   const [progress, setProgress]     = useState({ done: 0, total: 0 })
@@ -364,7 +385,7 @@ function BulkUploadTab({ colleges }) {
           if (!match) { skipped.push({ row: email, reason: `College not found: "${collegeName}"` }); continue }
           college_id = match.id
         }
-        toProcess.push({ name, email, college_id, role })
+        toProcess.push({ name, email, college_id, role, school_id: effectiveSchoolId })
         existingEmails.add(email)
       }
       const BATCH = 5; let added = 0
@@ -388,6 +409,17 @@ function BulkUploadTab({ colleges }) {
   }
 
   const handleDrop = (e) => { e.preventDefault(); setDragging(false); processFile(e.dataTransfer.files[0]) }
+
+  if (isAllSchools) {
+    return (
+      <div className="max-w-2xl">
+        <h2 className="text-xl font-bold text-[var(--primary)] mb-5">Bulk Upload Advisors</h2>
+        <div className="bg-white rounded-xl shadow p-8 text-center text-gray-400">
+          Pick a specific school from the switcher up top before bulk uploading — every advisor in the CSV lands on one school.
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-2xl">
@@ -609,7 +641,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
 
 // ── TAB 4 — Manage Advisors ───────────────────────────────────────────────────
 
-function ManageAdvisorsTab({ colleges, isPlatformAdmin, schoolId }) {
+function ManageAdvisorsTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAllSchools }) {
   const [advisors, setAdvisors] = useState([])
   const [loading, setLoading]   = useState(true)
   const [editing, setEditing]   = useState(null)
@@ -617,12 +649,12 @@ function ManageAdvisorsTab({ colleges, isPlatformAdmin, schoolId }) {
   const [sortDir, setSortDir]   = useState('asc')
 
   const fetchAdvisors = useCallback(async () => {
-    let query = supabase.from('advisors').select('*, college:colleges(name)')
-    if (!isPlatformAdmin && schoolId) query = query.eq('school_id', schoolId)
+    let query = supabase.from('advisors').select('*, college:colleges(name), school:schools(name)')
+    if (effectiveSchoolId) query = query.eq('school_id', effectiveSchoolId)
     const { data } = await query
     setAdvisors(data ?? [])
     setLoading(false)
-  }, [isPlatformAdmin, schoolId])
+  }, [effectiveSchoolId])
 
   useEffect(() => { fetchAdvisors() }, [fetchAdvisors])
 
@@ -676,6 +708,7 @@ function ManageAdvisorsTab({ colleges, isPlatformAdmin, schoolId }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-left">
+                {isAllSchools && <th className="px-5 py-3 text-gray-600 font-semibold whitespace-nowrap">School</th>}
                 {sortTh('Name', 'name')}
                 <th className="px-5 py-3 text-gray-600 font-semibold whitespace-nowrap">Email</th>
                 {sortTh('College', 'college')}
@@ -687,6 +720,7 @@ function ManageAdvisorsTab({ colleges, isPlatformAdmin, schoolId }) {
             <tbody>
               {sorted.map((a, i) => (
                 <tr key={a.id} className={`border-b border-gray-100 ${i % 2 ? 'bg-gray-50' : ''}`}>
+                  {isAllSchools && <td className="px-5 py-3 text-gray-500">{a.school?.name ?? '—'}</td>}
                   <td className="px-5 py-3 font-medium text-gray-800">{a.name}</td>
                   <td className="px-5 py-3 text-gray-500">{a.email}</td>
                   <td className="px-5 py-3 text-gray-600">{a.college?.name ?? '—'}</td>
@@ -711,18 +745,18 @@ function ManageAdvisorsTab({ colleges, isPlatformAdmin, schoolId }) {
 
 // ── TAB 5 — Manage Colleges ───────────────────────────────────────────────────
 
-function ManageCollegesTab({ isPlatformAdmin, schoolId }) {
+function ManageCollegesTab({ isPlatformAdmin, effectiveSchoolId, isAllSchools }) {
   const [colleges, setColleges] = useState([])
   const [loading, setLoading]   = useState(true)
   const [toggling, setToggling] = useState(null)
 
   const fetchColleges = useCallback(async () => {
-    let query = supabase.from('colleges').select('*').order('name', { ascending: true })
-    if (!isPlatformAdmin && schoolId) query = query.eq('school_id', schoolId)
+    let query = supabase.from('colleges').select('*, school:schools(name)').order('name', { ascending: true })
+    if (effectiveSchoolId) query = query.eq('school_id', effectiveSchoolId)
     const { data } = await query
     setColleges(data ?? [])
     setLoading(false)
-  }, [isPlatformAdmin, schoolId])
+  }, [effectiveSchoolId])
 
   useEffect(() => { fetchColleges() }, [fetchColleges])
 
@@ -755,6 +789,7 @@ function ManageCollegesTab({ isPlatformAdmin, schoolId }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200 text-left">
+              {isAllSchools && <th className="px-5 py-3 text-gray-600 font-semibold">School</th>}
               <th className="px-5 py-3 text-gray-600 font-semibold">College Name</th>
               <th className="px-5 py-3 text-gray-600 font-semibold">Active</th>
               <th className="px-5 py-3 text-gray-600 font-semibold">Require Major</th>
@@ -763,6 +798,7 @@ function ManageCollegesTab({ isPlatformAdmin, schoolId }) {
           <tbody>
             {colleges.map((c, i) => (
               <tr key={c.id} className={`border-b border-gray-100 ${i % 2 ? 'bg-gray-50' : ''}`}>
+                {isAllSchools && <td className="px-5 py-3 text-gray-500">{c.school?.name ?? '—'}</td>}
                 <td className="px-5 py-3 font-medium text-gray-800">{c.name}</td>
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2.5">
@@ -788,8 +824,7 @@ function ManageCollegesTab({ isPlatformAdmin, schoolId }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
-  const { user, role, schoolId } = useAuth()
-  const isPlatformAdmin = role === 'platform_admin'
+  const { isPlatformAdmin, effectiveSchoolId, isAllSchools } = useAdminScope()
   const [activeTab, setActiveTab] = useState('queue')
   const [colleges, setColleges]   = useState([])
   const [now, setNow]             = useState(Date.now())
@@ -805,10 +840,10 @@ export default function AdminPage() {
       .select('id, name, school_id')
       .eq('is_active', true)
       .order('name', { ascending: true })
-    // A system_admin only ever sees their own school's colleges. platform_admin sees everything.
-    if (!isPlatformAdmin && schoolId) query = query.eq('school_id', schoolId)
+    // null effectiveSchoolId only happens for a platform_admin browsing "All Schools".
+    if (effectiveSchoolId) query = query.eq('school_id', effectiveSchoolId)
     query.then(({ data }) => setColleges(data ?? []))
-  }, [isPlatformAdmin, schoolId])
+  }, [effectiveSchoolId])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -832,11 +867,11 @@ export default function AdminPage() {
             🖨 Print Check-In Sign
           </a>
         </div>
-        {activeTab === 'queue'    && <LiveQueueTab now={now} isPlatformAdmin={isPlatformAdmin} schoolId={schoolId} />}
-        {activeTab === 'add'      && <AddAdvisorTab colleges={colleges} isPlatformAdmin={isPlatformAdmin} />}
-        {activeTab === 'bulk'     && <BulkUploadTab colleges={colleges} />}
-        {activeTab === 'advisors' && <ManageAdvisorsTab colleges={colleges} isPlatformAdmin={isPlatformAdmin} schoolId={schoolId} />}
-        {activeTab === 'colleges' && <ManageCollegesTab isPlatformAdmin={isPlatformAdmin} schoolId={schoolId} />}
+        {activeTab === 'queue'    && <LiveQueueTab now={now} effectiveSchoolId={effectiveSchoolId} isAllSchools={isAllSchools} />}
+        {activeTab === 'add'      && <AddAdvisorTab colleges={colleges} isPlatformAdmin={isPlatformAdmin} effectiveSchoolId={effectiveSchoolId} isAllSchools={isAllSchools} />}
+        {activeTab === 'bulk'     && <BulkUploadTab colleges={colleges} effectiveSchoolId={effectiveSchoolId} isAllSchools={isAllSchools} />}
+        {activeTab === 'advisors' && <ManageAdvisorsTab colleges={colleges} isPlatformAdmin={isPlatformAdmin} effectiveSchoolId={effectiveSchoolId} isAllSchools={isAllSchools} />}
+        {activeTab === 'colleges' && <ManageCollegesTab isPlatformAdmin={isPlatformAdmin} effectiveSchoolId={effectiveSchoolId} isAllSchools={isAllSchools} />}
       </div>
     </div>
   )

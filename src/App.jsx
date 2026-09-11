@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { AdminScopeProvider } from './context/AdminScopeContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import KioskPage from './pages/KioskPage'
 import LoginPage from './pages/LoginPage'
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
+      <AdminScopeProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/kiosk" element={<KioskPage />} />
@@ -72,6 +74,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/kiosk" replace />} />
           </Routes>
         </BrowserRouter>
+      </AdminScopeProvider>
       </ThemeProvider>
     </AuthProvider>
   )
