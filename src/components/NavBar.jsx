@@ -182,7 +182,7 @@ export default function NavBar() {
           <div className="flex items-center gap-3">
             <div className="w-1.5 h-7 bg-[var(--nav-shelf)] rounded-full" />
             {logoUrl ? (
-              <img src={logoUrl} alt={schoolName ?? 'School logo'} className="h-7 w-auto max-w-[10rem] object-contain" />
+              <img src={logoUrl} alt={schoolName ?? 'School logo'} className="h-11 w-auto max-w-[14rem] object-contain" />
             ) : (
               <span className="font-bold text-lg tracking-tight">{schoolName ?? 'UAC Advising Kiosk'}</span>
             )}
