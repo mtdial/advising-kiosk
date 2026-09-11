@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/*
+ * Theme custom properties. These are the base-palette fallbacks rendered
+ * before ThemeContext fetches the current school's row and overwrites them
+ * (see src/context/ThemeContext.jsx). Keep in sync with that file and with
+ * the `schools` table's column defaults.
+ */
+:root {
+  --primary:    #0E0E0D; /* Ink */
+  --accent:     #B29F56; /* Bridge Gold */
+  --nav-fill:   #003162; /* Panther Navy */
+  --nav-shelf:  #6A0009; /* Cocked Garnet */
+  --link-color: #6E6C68; /* Warm Graphite */
+  --hover-color:#F7F4EC; /* Parchment */
+}
+
 body {
   margin: 0;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;

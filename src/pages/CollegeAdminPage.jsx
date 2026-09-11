@@ -20,7 +20,7 @@ function formatWaitFrozen(checkedInAt, seenAt) {
 
 function ApptBadge({ type }) {
   if (type === 'Office Hours: Drop-In') {
-    return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#CED318]/20 text-[#73000a]">{type}</span>
+    return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#CED318]/20 text-[var(--primary)]">{type}</span>
   }
   return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#466A9F]/15 text-[#466A9F]">{type ?? '—'}</span>
 }
@@ -53,7 +53,7 @@ function QueueTable({ rows, now, showAdvisor = true }) {
               </td>
               <td className="px-4 py-3">
                 {r.status === 'waiting' ? (
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#CED318] text-[#73000a]">waiting</span>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[var(--accent)] text-[var(--primary)]">waiting</span>
                 ) : (
                   <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#466A9F]/15 text-[#466A9F]">in-progress</span>
                 )}
@@ -158,14 +158,14 @@ export default function CollegeAdminPage() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-xl font-bold text-[#73000a]">College Queue</h1>
+            <h1 className="text-xl font-bold text-[var(--primary)]">College Queue</h1>
             <p className="text-sm text-gray-500 mt-0.5">{waitingRows.length} waiting · {inProgressRows.length} in progress</p>
           </div>
           <div className="flex items-center gap-2">
-            <a href="/advising-checkin-sign.pdf" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[#73000a] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+            <a href="/advising-checkin-sign.pdf" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-[var(--primary)] bg-white shadow px-4 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
               🖨 Print Check-In Sign
             </a>
-            <button onClick={fetchQueue} className="text-sm border border-[#73000a] text-[#73000a] px-3 py-1.5 rounded-lg hover:bg-[#73000a] hover:text-white transition-colors">
+            <button onClick={fetchQueue} className="text-sm border border-[var(--link-color)] text-[var(--primary)] px-3 py-1.5 rounded-lg hover:bg-[var(--link-color)] hover:text-white transition-colors">
               Refresh
             </button>
           </div>

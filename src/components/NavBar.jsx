@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import { supabase } from '../supabase'
 
 // ── Change Password Modal ─────────────────────────────────────────────────────
@@ -42,7 +43,7 @@ function ChangePasswordModal({ onClose }) {
     }
   }
 
-  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#73000a] focus:border-transparent'
+  const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent'
 
   return (
     <div
@@ -54,7 +55,7 @@ function ChangePasswordModal({ onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold text-[#73000a]">Change Password</h3>
+          <h3 className="text-lg font-bold text-[var(--primary)]">Change Password</h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-xl leading-none"
@@ -70,7 +71,7 @@ function ChangePasswordModal({ onClose }) {
             </p>
             <button
               onClick={onClose}
-              className="w-full bg-[#73000a] text-white font-semibold py-2.5 rounded-lg hover:bg-[#570008] transition-colors"
+              className="w-full bg-[var(--nav-fill)] text-white font-semibold py-2.5 rounded-lg hover:bg-[var(--hover-color)] transition-colors"
             >
               Close
             </button>
@@ -131,7 +132,7 @@ function ChangePasswordModal({ onClose }) {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 bg-[#73000a] text-white font-semibold py-2.5 rounded-lg hover:bg-[#570008] transition-colors disabled:opacity-60"
+                className="flex-1 bg-[var(--nav-fill)] text-white font-semibold py-2.5 rounded-lg hover:bg-[var(--hover-color)] transition-colors disabled:opacity-60"
               >
                 {saving ? 'Updating…' : 'Update Password'}
               </button>
@@ -150,12 +151,14 @@ const NAV_LINKS = [
   { to: '/college-admin', label: 'College Queue', show: (a) => a.isCollegeAdmin || a.role === 'admin' },
   { to: '/suite-admin',   label: 'UAC Suite Queue', show: (a) => a.isSuiteAdmin || a.role === 'admin' },
   { to: '/ea-suite-admin', label: 'EA Suite Queue',  show: (a) => a.isEASuiteAdmin || a.role === 'admin' },
+  { to: '/theme-settings', label: 'Theme Settings',  show: (a) => a.isCampusAdmin || a.role === 'admin' },
   { to: '/admin',         label: 'Admin',          show: (a) => a.role === 'admin' },
 ]
 
 export default function NavBar() {
   const auth = useAuth()
   const { advisorName, role, signOut } = auth
+  const { logoUrl, schoolName } = useTheme() ?? {}
   const navigate = useNavigate()
   const location = useLocation()
   const [showChangePassword, setShowChangePassword] = useState(false)
@@ -173,12 +176,16 @@ export default function NavBar() {
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
       )}
 
-      <nav className="bg-[#73000a] text-white px-6 py-4 flex items-center justify-between shadow-lg flex-wrap gap-3">
+      <nav className="bg-[var(--nav-fill)] text-white px-6 py-4 flex items-center justify-between shadow-lg flex-wrap gap-3">
         {/* Left: app name + nav links */}
         <div className="flex items-center gap-5 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-1.5 h-7 bg-[#CED318] rounded-full" />
-            <span className="font-bold text-lg tracking-tight">UAC Advising Kiosk</span>
+            <div className="w-1.5 h-7 bg-[var(--nav-shelf)] rounded-full" />
+            {logoUrl ? (
+              <img src={logoUrl} alt={schoolName ?? 'School logo'} className="h-7 w-auto max-w-[10rem] object-contain" />
+            ) : (
+              <span className="font-bold text-lg tracking-tight">{schoolName ?? 'UAC Advising Kiosk'}</span>
+            )}
           </div>
           {links.length > 1 && (
             <div className="flex items-center gap-1">
@@ -204,7 +211,7 @@ export default function NavBar() {
           {advisorName && (
             <div className="flex items-center gap-2">
               {role === 'admin' && (
-                <span className="text-xs bg-[#CED318] text-[#73000a] font-bold px-2 py-0.5 rounded">
+                <span className="text-xs bg-[var(--accent)] text-[var(--primary)] font-bold px-2 py-0.5 rounded">
                   ADMIN
                 </span>
               )}
