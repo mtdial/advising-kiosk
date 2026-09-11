@@ -49,6 +49,11 @@ function ApptBadge({ type }) {
   return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#466A9F]/15 text-[#466A9F]">{type ?? '—'}</span>
 }
 
+const ROLE_LABELS = { platform_admin: 'Platform Admin', system_admin: 'System Admin', advisor: 'Advisor' }
+function formatRole(role) {
+  return ROLE_LABELS[role] ?? role
+}
+
 function StatusBadge({ status }) {
   if (status === 'waiting') {
     return <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[var(--accent)] text-[var(--primary)]">waiting</span>
@@ -101,7 +106,7 @@ const TABS = [
 
 // ── TAB 1 — Live Queue ────────────────────────────────────────────────────────
 
-function LiveQueueTab({ now }) {
+function LiveQueueTab({ now, isPlatformAdmin, schoolId }) {
   const [rows, setRows]         = useState([])
   const [seenRows, setSeenRows] = useState([])
   const [loading, setLoading]   = useState(true)
@@ -111,23 +116,27 @@ function LiveQueueTab({ now }) {
   }
 
   const fetchQueue = useCallback(async () => {
-    const [activeRes, seenRes] = await Promise.all([
-      supabase
-        .from('queue')
-        .select('*, college:colleges(name), advisor:advisors(name)')
-        .in('status', ['waiting', 'in-progress'])
-        .order('checked_in_at', { ascending: true }),
-      supabase
-        .from('queue')
-        .select('*, college:colleges(name), advisor:advisors(name)')
-        .eq('status', 'seen')
-        .gte('seen_at', todayStart().toISOString())
-        .order('seen_at', { ascending: false }),
-    ])
+    let activeQuery = supabase
+      .from('queue')
+      .select('*, college:colleges(name), advisor:advisors(name)')
+      .in('status', ['waiting', 'in-progress'])
+      .order('checked_in_at', { ascending: true })
+    let seenQuery = supabase
+      .from('queue')
+      .select('*, college:colleges(name), advisor:advisors(name)')
+      .eq('status', 'seen')
+      .gte('seen_at', todayStart().toISOString())
+      .order('seen_at', { ascending: false })
+    // A system_admin only ever sees their own school's queue. platform_admin sees everything.
+    if (!isPlatformAdmin && schoolId) {
+      activeQuery = activeQuery.eq('school_id', schoolId)
+      seenQuery   = seenQuery.eq('school_id', schoolId)
+    }
+    const [activeRes, seenRes] = await Promise.all([activeQuery, seenQuery])
     if (!activeRes.error) setRows(activeRes.data ?? [])
     if (!seenRes.error)   setSeenRows(seenRes.data ?? [])
     setLoading(false)
-  }, [])
+  }, [isPlatformAdmin, schoolId])
 
   useEffect(() => {
     fetchQueue()
@@ -247,7 +256,7 @@ async function callCreateAdvisor({ name, email, college_id, role }) {
 
 // ── TAB 2 — Add Advisor ───────────────────────────────────────────────────────
 
-function AddAdvisorTab({ colleges }) {
+function AddAdvisorTab({ colleges, isPlatformAdmin }) {
   const blank = { name: '', email: '', college_id: '', role: 'advisor' }
   const [form, setForm]       = useState(blank)
   const [loading, setLoading] = useState(false)
@@ -303,7 +312,8 @@ function AddAdvisorTab({ colleges }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
             <select value={form.role} onChange={set('role')} className={`${inputCls} bg-white`}>
               <option value="advisor">Advisor</option>
-              <option value="admin">Admin</option>
+              <option value="system_admin">System Admin</option>
+              {isPlatformAdmin && <option value="platform_admin">Platform Admin</option>}
             </select>
           </div>
           {error   && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
@@ -344,7 +354,8 @@ function BulkUploadTab({ colleges }) {
         const name  = row.name?.trim()
         const email = row.email?.trim().toLowerCase()
         const collegeName = (row.college_name || row.college)?.trim()
-        const role  = row.role?.trim() || 'advisor'
+        const roleRaw = row.role?.trim() || 'advisor'
+        const role  = roleRaw.toLowerCase() === 'admin' ? 'system_admin' : roleRaw
         if (!name || !email) { skipped.push({ row: email || name || '(empty)', reason: 'Missing name or email' }); continue }
         if (existingEmails.has(email)) { skipped.push({ row: email, reason: 'Email already exists' }); continue }
         let college_id = null
@@ -386,7 +397,7 @@ function BulkUploadTab({ colleges }) {
         <pre className="text-xs text-gray-600 font-mono leading-relaxed">
 {`name,email,college_name,role
 Jane Smith,jsmith@sc.edu,College of Arts and Sciences,advisor
-John Doe,jdoe@sc.edu,College of Engineering and Computing,admin`}
+John Doe,jdoe@sc.edu,College of Engineering and Computing,system_admin`}
         </pre>
         <p className="text-xs text-gray-400 mt-2">
           <span className="font-medium">college_name</span> (or <span className="font-medium">college</span>) must exactly match a college name in Supabase.
@@ -443,7 +454,7 @@ John Doe,jdoe@sc.edu,College of Engineering and Computing,admin`}
 
 // ── Edit Advisor Modal ────────────────────────────────────────────────────────
 
-function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
+function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin }) {
   const [form, setForm] = useState({
     name:             advisor.name,
     email:            advisor.email,
@@ -545,7 +556,8 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
             <select value={form.role} onChange={set('role')} className={`${inputCls} bg-white`}>
               <option value="advisor">Advisor</option>
-              <option value="admin">Admin</option>
+              <option value="system_admin">System Admin</option>
+              {(isPlatformAdmin || advisor.role === 'platform_admin') && <option value="platform_admin">Platform Admin</option>}
             </select>
           </div>
           <div>
@@ -597,7 +609,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved }) {
 
 // ── TAB 4 — Manage Advisors ───────────────────────────────────────────────────
 
-function ManageAdvisorsTab({ colleges }) {
+function ManageAdvisorsTab({ colleges, isPlatformAdmin, schoolId }) {
   const [advisors, setAdvisors] = useState([])
   const [loading, setLoading]   = useState(true)
   const [editing, setEditing]   = useState(null)
@@ -605,10 +617,12 @@ function ManageAdvisorsTab({ colleges }) {
   const [sortDir, setSortDir]   = useState('asc')
 
   const fetchAdvisors = useCallback(async () => {
-    const { data } = await supabase.from('advisors').select('*, college:colleges(name)')
+    let query = supabase.from('advisors').select('*, college:colleges(name)')
+    if (!isPlatformAdmin && schoolId) query = query.eq('school_id', schoolId)
+    const { data } = await query
     setAdvisors(data ?? [])
     setLoading(false)
-  }, [])
+  }, [isPlatformAdmin, schoolId])
 
   useEffect(() => { fetchAdvisors() }, [fetchAdvisors])
 
@@ -647,7 +661,7 @@ function ManageAdvisorsTab({ colleges }) {
 
   return (
     <div>
-      {editing && <EditAdvisorModal advisor={editing} colleges={colleges} onClose={() => setEditing(null)} onSaved={handleSaved} />}
+      {editing && <EditAdvisorModal advisor={editing} colleges={colleges} onClose={() => setEditing(null)} onSaved={handleSaved} isPlatformAdmin={isPlatformAdmin} />}
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-xl font-bold text-[var(--primary)]">Manage Advisors</h2>
@@ -676,7 +690,7 @@ function ManageAdvisorsTab({ colleges }) {
                   <td className="px-5 py-3 font-medium text-gray-800">{a.name}</td>
                   <td className="px-5 py-3 text-gray-500">{a.email}</td>
                   <td className="px-5 py-3 text-gray-600">{a.college?.name ?? '—'}</td>
-                  <td className="px-5 py-3 text-gray-500 capitalize">{a.role}</td>
+                  <td className="px-5 py-3 text-gray-500">{formatRole(a.role)}</td>
                   <td className="px-5 py-3">
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${a.is_active ? 'bg-[#CED318]/20 text-[#65780B]' : 'bg-gray-100 text-gray-400'}`}>
                       {a.is_active ? 'Active' : 'Inactive'}
@@ -697,16 +711,18 @@ function ManageAdvisorsTab({ colleges }) {
 
 // ── TAB 5 — Manage Colleges ───────────────────────────────────────────────────
 
-function ManageCollegesTab() {
+function ManageCollegesTab({ isPlatformAdmin, schoolId }) {
   const [colleges, setColleges] = useState([])
   const [loading, setLoading]   = useState(true)
   const [toggling, setToggling] = useState(null)
 
   const fetchColleges = useCallback(async () => {
-    const { data } = await supabase.from('colleges').select('*').order('name', { ascending: true })
+    let query = supabase.from('colleges').select('*').order('name', { ascending: true })
+    if (!isPlatformAdmin && schoolId) query = query.eq('school_id', schoolId)
+    const { data } = await query
     setColleges(data ?? [])
     setLoading(false)
-  }, [])
+  }, [isPlatformAdmin, schoolId])
 
   useEffect(() => { fetchColleges() }, [fetchColleges])
 
@@ -772,7 +788,8 @@ function ManageCollegesTab() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
-  const { user } = useAuth()
+  const { user, role, schoolId } = useAuth()
+  const isPlatformAdmin = role === 'platform_admin'
   const [activeTab, setActiveTab] = useState('queue')
   const [colleges, setColleges]   = useState([])
   const [now, setNow]             = useState(Date.now())
@@ -783,13 +800,15 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => {
-    supabase
+    let query = supabase
       .from('colleges')
-      .select('id, name')
+      .select('id, name, school_id')
       .eq('is_active', true)
       .order('name', { ascending: true })
-      .then(({ data }) => setColleges(data ?? []))
-  }, [])
+    // A system_admin only ever sees their own school's colleges. platform_admin sees everything.
+    if (!isPlatformAdmin && schoolId) query = query.eq('school_id', schoolId)
+    query.then(({ data }) => setColleges(data ?? []))
+  }, [isPlatformAdmin, schoolId])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -813,11 +832,11 @@ export default function AdminPage() {
             🖨 Print Check-In Sign
           </a>
         </div>
-        {activeTab === 'queue'    && <LiveQueueTab now={now} />}
-        {activeTab === 'add'      && <AddAdvisorTab colleges={colleges} />}
+        {activeTab === 'queue'    && <LiveQueueTab now={now} isPlatformAdmin={isPlatformAdmin} schoolId={schoolId} />}
+        {activeTab === 'add'      && <AddAdvisorTab colleges={colleges} isPlatformAdmin={isPlatformAdmin} />}
         {activeTab === 'bulk'     && <BulkUploadTab colleges={colleges} />}
-        {activeTab === 'advisors' && <ManageAdvisorsTab colleges={colleges} />}
-        {activeTab === 'colleges' && <ManageCollegesTab />}
+        {activeTab === 'advisors' && <ManageAdvisorsTab colleges={colleges} isPlatformAdmin={isPlatformAdmin} schoolId={schoolId} />}
+        {activeTab === 'colleges' && <ManageCollegesTab isPlatformAdmin={isPlatformAdmin} schoolId={schoolId} />}
       </div>
     </div>
   )

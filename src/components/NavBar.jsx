@@ -146,13 +146,16 @@ function ChangePasswordModal({ onClose }) {
 
 // ── NavBar ────────────────────────────────────────────────────────────────────
 
+const ADMIN_ROLES = ['platform_admin', 'system_admin']
+const isAdminRole = (a) => ADMIN_ROLES.includes(a.role)
+
 const NAV_LINKS = [
   { to: '/advisor',       label: 'My Queue',     show: () => true },
-  { to: '/college-admin', label: 'College Queue', show: (a) => a.isCollegeAdmin || a.role === 'admin' },
-  { to: '/suite-admin',   label: 'UAC Suite Queue', show: (a) => a.isSuiteAdmin || a.role === 'admin' },
-  { to: '/ea-suite-admin', label: 'EA Suite Queue',  show: (a) => a.isEASuiteAdmin || a.role === 'admin' },
-  { to: '/theme-settings', label: 'Theme Settings',  show: (a) => a.isCampusAdmin || a.role === 'admin' },
-  { to: '/admin',         label: 'Admin',          show: (a) => a.role === 'admin' },
+  { to: '/college-admin', label: 'College Queue', show: (a) => a.isCollegeAdmin || isAdminRole(a) },
+  { to: '/suite-admin',   label: 'UAC Suite Queue', show: (a) => a.isSuiteAdmin || isAdminRole(a) },
+  { to: '/ea-suite-admin', label: 'EA Suite Queue',  show: (a) => a.isEASuiteAdmin || isAdminRole(a) },
+  { to: '/theme-settings', label: 'Theme Settings',  show: (a) => a.isCampusAdmin || isAdminRole(a) },
+  { to: '/admin',         label: 'Admin',          show: (a) => isAdminRole(a) },
 ]
 
 export default function NavBar() {
@@ -210,7 +213,12 @@ export default function NavBar() {
         <div className="flex items-center gap-3">
           {advisorName && (
             <div className="flex items-center gap-2">
-              {role === 'admin' && (
+              {role === 'platform_admin' && (
+                <span className="text-xs bg-[var(--accent)] text-[var(--primary)] font-bold px-2 py-0.5 rounded">
+                  PLATFORM ADMIN
+                </span>
+              )}
+              {role === 'system_admin' && (
                 <span className="text-xs bg-[var(--accent)] text-[var(--primary)] font-bold px-2 py-0.5 rounded">
                   ADMIN
                 </span>

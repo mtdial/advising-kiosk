@@ -5,6 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const ADMIN_ROLES = ['platform_admin', 'system_admin']
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -25,15 +27,34 @@ Deno.serve(async (req) => {
     )
     if (authErr || !user) throw new Error('Invalid token')
 
-    const { data: profile } = await supabaseAdmin
+    const { data: caller } = await supabaseAdmin
       .from('advisors')
-      .select('role')
+      .select('role, school_id')
       .eq('email', user.email?.toLowerCase())
       .maybeSingle()
-    if (profile?.role !== 'admin') throw new Error('Forbidden: admin role required')
+    if (!caller || !ADMIN_ROLES.includes(caller.role)) {
+      throw new Error('Forbidden: admin role required')
+    }
 
-    const { name, email, college_id, role } = await req.json()
+    const { name, email, college_id, role, school_id } = await req.json()
     if (!name || !email) throw new Error('Name and email are required')
+
+    const requestedRole = role || 'advisor'
+
+    // A system_admin can only create advisors within their own school, and
+    // can never grant platform_admin — only a platform_admin can do that.
+    // school_id is never trusted from the client for a system_admin caller.
+    let targetSchoolId
+    if (caller.role === 'system_admin') {
+      if (requestedRole === 'platform_admin') {
+        throw new Error('Forbidden: only a platform admin can grant the platform admin role')
+      }
+      targetSchoolId = caller.school_id
+    } else {
+      // platform_admin: trust the school_id they picked, if any (falls back
+      // to the default-school trigger when not provided).
+      targetSchoolId = school_id || null
+    }
 
     const normalizedEmail = email.trim().toLowerCase()
 
@@ -55,7 +76,8 @@ Deno.serve(async (req) => {
       name:       name.trim(),
       email:      normalizedEmail,
       college_id: college_id || null,
-      role:       role || 'advisor',
+      role:       requestedRole,
+      school_id:  targetSchoolId,
       is_active:  true,
     }])
     if (dbErr) {

@@ -1,6 +1,8 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+const ADMIN_ROLES = ['platform_admin', 'system_admin']
+
 export default function ProtectedRoute({ children, requiredRole, requireFlag }) {
   const auth = useAuth()
   const { user, role, loading } = auth
@@ -17,12 +19,17 @@ export default function ProtectedRoute({ children, requiredRole, requireFlag }) 
     return <Navigate to="/login" replace />
   }
 
-  if (requiredRole && role !== requiredRole) {
-    return <Navigate to="/advisor" replace />
+  if (requiredRole) {
+    const allowed = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
+    if (!allowed.includes(role)) {
+      return <Navigate to="/advisor" replace />
+    }
   }
 
-  // Full admins can see any flag-gated view; otherwise the user needs the flag itself.
-  if (requireFlag && !auth[requireFlag] && role !== 'admin') {
+  // Either admin tier can see any flag-gated view. A system_admin's own
+  // queries are still scoped to their own school_id — this route guard just
+  // decides who gets past the door, not what they see once inside.
+  if (requireFlag && !auth[requireFlag] && !ADMIN_ROLES.includes(role)) {
     return <Navigate to="/advisor" replace />
   }
 
