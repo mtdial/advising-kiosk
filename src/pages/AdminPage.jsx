@@ -20,6 +20,19 @@ function formatWaitFrozen(checkedInAt, seenAt) {
   return `${m}m ${s < 10 ? '0' : ''}${s}s`
 }
 
+// Accepts 2026-08-17, 8/17/2026 or 8/17/26. Returns YYYY-MM-DD or null.
+function normalizeStartDate(input) {
+  const v = String(input ?? '').trim()
+  let y, m, d, x
+  if ((x = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(v))) [, y, m, d] = x
+  else if ((x = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(v))) { [, m, d, y] = x; if (y.length === 2) y = `20${y}` }
+  else return null
+  y = +y; m = +m; d = +d
+  const t = new Date(Date.UTC(y, m - 1, d))
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return null
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
 function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/)
   if (lines.length < 2) return []
@@ -266,7 +279,7 @@ async function callCreateAdvisor({ name, email, college_id, role, school_id }) {
 // ── TAB 2 — Add Advisor ───────────────────────────────────────────────────────
 
 function AddAdvisorTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAllSchools }) {
-  const blank = { name: '', email: '', college_id: '', role: 'advisor' }
+  const blank = { name: '', email: '', college_id: '', role: 'advisor', start_date: '' }
   const [form, setForm]       = useState(blank)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
@@ -287,6 +300,10 @@ function AddAdvisorTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAllScho
         role:       form.role,
         school_id:  effectiveSchoolId,
       })
+      if (form.start_date) {
+        const { error: sdErr } = await supabase.from('advisors').update({ start_date: form.start_date }).eq('email', form.email.trim().toLowerCase())
+        if (sdErr) throw new Error(`Advisor added, but the start date did not save: ${sdErr.message}`)
+      }
       setSuccess(`Advisor added! They can now log in with the default password.`)
       setForm(blank)
     } catch (err) {
@@ -328,6 +345,11 @@ function AddAdvisorTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAllScho
               <option value="">— No college assigned —</option>
               {colleges.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Start Date</label>
+            <input type="date" value={form.start_date} onChange={set('start_date')} className={inputCls} />
+            <p className="text-xs text-gray-400 mt-1">First day at the UAC. Staff meetings before this date do not count for the advisor. Leave blank for no cutoff.</p>
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
@@ -378,6 +400,11 @@ function BulkUploadTab({ colleges, effectiveSchoolId, isAllSchools }) {
         const roleRaw = row.role?.trim() || 'advisor'
         const role  = roleRaw.toLowerCase() === 'admin' ? 'system_admin' : roleRaw
         if (!name || !email) { skipped.push({ row: email || name || '(empty)', reason: 'Missing name or email' }); continue }
+        let startDate = null
+        if (row.start_date?.trim()) {
+          startDate = normalizeStartDate(row.start_date)
+          if (!startDate) { skipped.push({ row: email, reason: `Bad start date: "${row.start_date}"` }); continue }
+        }
         if (existingEmails.has(email)) { skipped.push({ row: email, reason: 'Email already exists' }); continue }
         let college_id = null
         if (collegeName) {
@@ -385,14 +412,20 @@ function BulkUploadTab({ colleges, effectiveSchoolId, isAllSchools }) {
           if (!match) { skipped.push({ row: email, reason: `College not found: "${collegeName}"` }); continue }
           college_id = match.id
         }
-        toProcess.push({ name, email, college_id, role, school_id: effectiveSchoolId })
+        toProcess.push({ name, email, college_id, role, school_id: effectiveSchoolId, start_date: startDate })
         existingEmails.add(email)
       }
       const BATCH = 5; let added = 0
       setProgress({ done: 0, total: toProcess.length })
       for (let i = 0; i < toProcess.length; i += BATCH) {
         const batch = toProcess.slice(i, i + BATCH)
-        const results = await Promise.allSettled(batch.map((a) => callCreateAdvisor(a)))
+        const results = await Promise.allSettled(batch.map(async (a) => {
+          await callCreateAdvisor(a)
+          if (a.start_date) {
+            const { error: sdErr } = await supabase.from('advisors').update({ start_date: a.start_date }).eq('email', a.email)
+            if (sdErr) throw new Error(`Added, but start date did not save: ${sdErr.message}`)
+          }
+        }))
         results.forEach((r, idx) => {
           if (r.status === 'fulfilled') added++
           else skipped.push({ row: batch[idx].email, reason: r.reason?.message ?? 'Unknown error' })
@@ -427,12 +460,12 @@ function BulkUploadTab({ colleges, effectiveSchoolId, isAllSchools }) {
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-5">
         <p className="text-sm font-semibold text-gray-700 mb-2">Expected CSV format:</p>
         <pre className="text-xs text-gray-600 font-mono leading-relaxed">
-{`name,email,college_name,role
-Jane Smith,jsmith@sc.edu,College of Arts and Sciences,advisor
-John Doe,jdoe@sc.edu,College of Engineering and Computing,system_admin`}
+{`name,email,college_name,role,start_date
+Jane Smith,jsmith@sc.edu,College of Arts and Sciences,advisor,2024-08-19
+John Doe,jdoe@sc.edu,College of Engineering and Computing,system_admin,`}
         </pre>
         <p className="text-xs text-gray-400 mt-2">
-          <span className="font-medium">college_name</span> (or <span className="font-medium">college</span>) must exactly match a college name in Supabase.
+          <span className="font-medium">college_name</span> (or <span className="font-medium">college</span>) must exactly match a college name in Supabase. <span className="font-medium">start_date</span> is optional (2024-08-19 or 8/19/2024).
         </p>
       </div>
       <div
@@ -491,6 +524,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
     name:             advisor.name,
     email:            advisor.email,
     college_id:       advisor.college_id ?? '',
+    start_date:       advisor.start_date ?? '',
     role:             advisor.role,
     is_active:        advisor.is_active ?? true,
     is_college_admin: advisor.is_college_admin ?? false,
@@ -538,6 +572,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
       name:             form.name.trim(),
       email:            form.email.trim().toLowerCase(),
       college_id:       form.college_id || null,
+      start_date:       form.start_date || null,
       role:             form.role,
       is_active:        form.is_active,
       is_college_admin: form.is_college_admin,
@@ -583,6 +618,11 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
               <option value="">— No college assigned —</option>
               {colleges.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Start Date</label>
+            <input type="date" value={form.start_date} onChange={set('start_date')} className={inputCls} />
+            <p className="text-xs text-gray-400 mt-1">First day at the UAC. Staff meetings before this date do not count for the advisor. Leave blank for no cutoff.</p>
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
