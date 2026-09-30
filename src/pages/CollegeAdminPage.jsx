@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../supabase'
+import { useLiveQueue, QUEUE_COLUMNS } from '../hooks/useLiveQueue'
 import NavBar from '../components/NavBar'
 
 function formatWait(checkedInAt, now) {
@@ -105,49 +106,50 @@ function SeenTable({ rows }) {
 
 export default function CollegeAdminPage() {
   const { collegeId } = useAuth()
-  const [rows, setRows]         = useState([])
-  const [seenRows, setSeenRows] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [now, setNow]           = useState(Date.now())
+  const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [])
 
-  const fetchQueue = useCallback(async () => {
-    if (!collegeId) { setLoading(false); return }
+  const fetchData = useCallback(async () => {
+    if (!collegeId) return { active: [], seen: [] }
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
     const [activeRes, seenRes] = await Promise.all([
       supabase
         .from('queue')
-        .select('*, advisor:advisors(name)')
+        .select(`${QUEUE_COLUMNS}, advisor:advisors(name)`)
         .eq('college_id', collegeId)
         .in('status', ['waiting', 'in-progress'])
         .order('checked_in_at', { ascending: true }),
       supabase
         .from('queue')
-        .select('*, advisor:advisors(name)')
+        .select(`${QUEUE_COLUMNS}, advisor:advisors(name)`)
         .eq('college_id', collegeId)
         .eq('status', 'seen')
         .gte('seen_at', todayStart.toISOString())
         .order('seen_at', { ascending: false }),
     ])
-    if (!activeRes.error) setRows(activeRes.data ?? [])
-    if (!seenRes.error)   setSeenRows(seenRes.data ?? [])
-    setLoading(false)
+    if (activeRes.error || seenRes.error) return null
+    return { active: activeRes.data ?? [], seen: seenRes.data ?? [] }
   }, [collegeId])
 
-  useEffect(() => {
-    if (!collegeId) return
-    fetchQueue()
-    const poll = setInterval(fetchQueue, 5000)
-    const channel = supabase
-      .channel(`college-admin-queue-${collegeId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue', filter: `college_id=eq.${collegeId}` }, fetchQueue)
-      .subscribe()
-    return () => { clearInterval(poll); supabase.removeChannel(channel) }
-  }, [collegeId, fetchQueue])
+  const resolve = useCallback((row, lookups) => {
+    if (row.college_id !== collegeId) return false
+    const advisor = lookups.advisors?.get(row.advisor_id)
+    if (row.advisor_id && !advisor) return null
+    return { ...row, advisor: advisor ? { name: advisor.name } : null }
+  }, [collegeId])
+
+  const { active: rows, seen: seenRows, loading, refetch: fetchQueue } = useLiveQueue({
+    enabled: !!collegeId,
+    channelName: `college-admin-queue-${collegeId}`,
+    filter: `college_id=eq.${collegeId}`,
+    fetchData,
+    lookupKinds: ['advisors'],
+    resolve,
+  })
 
   const waitingRows    = rows.filter((r) => r.status === 'waiting')
   const inProgressRows = rows.filter((r) => r.status === 'in-progress')

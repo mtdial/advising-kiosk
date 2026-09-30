@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../supabase'
+import { useLiveQueue, QUEUE_COLUMNS } from '../hooks/useLiveQueue'
 import NavBar from '../components/NavBar'
 
 // ── Audio chime ───────────────────────────────────────────────────────────────
@@ -232,41 +233,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
 }
 
 // ── Seen Today table ──────────────────────────────────────────────────────────
-function SeenTodaySection({ advisorId, collegeId }) {
-  const [seenRows, setSeenRows] = useState([])
-  const [loading, setLoading]   = useState(true)
-
-  const fetchSeen = useCallback(async () => {
-    if (!advisorId) return
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-
-    let query = supabase
-      .from('queue')
-      .select('*, college:colleges(name)')
-      .eq('status', 'seen')
-      .gte('seen_at', todayStart.toISOString())
-      .order('seen_at', { ascending: false })
-
-    query = collegeId
-      ? query.or(`advisor_id.eq.${advisorId},advisor_id.is.null`).eq('college_id', collegeId)
-      : query.eq('advisor_id', advisorId)
-
-    const { data, error } = await query
-    if (!error) setSeenRows(data ?? [])
-    setLoading(false)
-  }, [advisorId, collegeId])
-
-  useEffect(() => {
-    fetchSeen()
-    const poll = setInterval(fetchSeen, 10000)
-    const channel = supabase
-      .channel(`advisor-seen-${advisorId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'queue' }, fetchSeen)
-      .subscribe()
-    return () => { clearInterval(poll); supabase.removeChannel(channel) }
-  }, [fetchSeen, advisorId])
-
+function SeenTodaySection({ seenRows, loading }) {
   if (loading || seenRows.length === 0) return null
 
   return (
@@ -313,12 +280,9 @@ function SeenTodaySection({ advisorId, collegeId }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function AdvisorPage() {
-  const { advisorId, collegeId } = useAuth()
-  const [queue, setQueue]     = useState([])
-  const [loading, setLoading] = useState(true)
+  const { advisorId, collegeId, schoolId } = useAuth()
   const [now, setNow]         = useState(Date.now())
   const [toasts, setToasts]   = useState([])
-  const hasLoaded             = useRef(false)
 
   // Office hours availability
   const [officeHoursAvailable, setOfficeHoursAvailable] = useState(false)
@@ -366,60 +330,62 @@ export default function AdvisorPage() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000)
   }, [])
 
-  const fetchQueue = useCallback(async () => {
-    if (!advisorId) return
-    let query = supabase
-      .from('queue')
-      .select('*, college:colleges(name)')
-      .in('status', ['waiting', 'in-progress'])
-      .order('checked_in_at', { ascending: true })
-
-    query = collegeId
-      ? query.or(`advisor_id.eq.${advisorId},advisor_id.is.null`).eq('college_id', collegeId)
-      : query.eq('advisor_id', advisorId)
-
-    const { data, error } = await query
-    if (!error) setQueue(data ?? [])
-    setLoading(false)
-    hasLoaded.current = true
+  const fetchData = useCallback(async () => {
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const scope = (q) => (collegeId
+      ? q.or(`advisor_id.eq.${advisorId},advisor_id.is.null`).eq('college_id', collegeId)
+      : q.eq('advisor_id', advisorId))
+    const [activeRes, seenRes] = await Promise.all([
+      scope(supabase.from('queue').select(`${QUEUE_COLUMNS}, college:colleges(name)`)
+        .in('status', ['waiting', 'in-progress'])
+        .order('checked_in_at', { ascending: true })),
+      scope(supabase.from('queue').select(`${QUEUE_COLUMNS}, college:colleges(name)`)
+        .eq('status', 'seen')
+        .gte('seen_at', todayStart.toISOString())
+        .order('seen_at', { ascending: false })),
+    ])
+    if (activeRes.error || seenRes.error) return null
+    return { active: activeRes.data ?? [], seen: seenRes.data ?? [] }
   }, [advisorId, collegeId])
 
-  useEffect(() => {
-    if (!advisorId) return
-    fetchQueue()
-    const poll = setInterval(fetchQueue, 2000)
-    const channel = supabase
-      .channel(`advisor-queue-${advisorId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'queue',
-          filter: collegeId ? `college_id=eq.${collegeId}` : `advisor_id=eq.${advisorId}`,
-        },
-        (payload) => {
-          const isForThisAdvisor =
-            payload.new?.advisor_id === advisorId || payload.new?.advisor_id === null
-          if (
-            payload.eventType === 'INSERT' &&
-            payload.new.status === 'waiting' &&
-            isForThisAdvisor &&
-            hasLoaded.current
-          ) {
-            const name = payload.new.student_name
-            const type = payload.new.appointment_type ?? 'Drop-In'
-            playChime()
-            sendPushNotification(name, type)
-            startFlash()
-            addToast(`New check-in: ${name} (${type})`)
-          }
-          fetchQueue()
-        }
-      )
-      .subscribe()
-    return () => { clearInterval(poll); supabase.removeChannel(channel) }
-  }, [advisorId, collegeId, fetchQueue, addToast, startFlash])
+  // Mirrors the REST scope: this advisor's rows plus unassigned ("Next Available")
+  // rows in their college, or only their own rows when they have no college.
+  const resolve = useCallback((row, lookups) => {
+    const inScope = collegeId
+      ? row.college_id === collegeId && (row.advisor_id === advisorId || row.advisor_id === null)
+      : row.advisor_id === advisorId
+    if (!inScope) return false
+    const college = lookups.colleges?.get(row.college_id)
+    if (row.college_id && !college) return null
+    return { ...row, college: college ? { name: college.name } : null }
+  }, [advisorId, collegeId])
+
+  const onInsert = useCallback((row) => {
+    if (row.status !== 'waiting') return
+    const name = row.student_name
+    const type = row.appointment_type ?? 'Drop-In'
+    playChime()
+    sendPushNotification(name, type)
+    startFlash()
+    addToast(`New check-in: ${name} (${type})`)
+  }, [addToast, startFlash])
+
+  // No-college advisors (admins) subscribe by school and filter to themselves client-side,
+  // so a reassignment away from them still arrives and removes the row.
+  const realtimeFilter = collegeId
+    ? `college_id=eq.${collegeId}`
+    : (schoolId ? `school_id=eq.${schoolId}` : `advisor_id=eq.${advisorId}`)
+
+  const { active: queue, seen: seenRows, loading, applyRow } = useLiveQueue({
+    enabled: !!advisorId,
+    channelName: `advisor-queue-${advisorId}-${collegeId ?? 'none'}`,
+    filter: realtimeFilter,
+    fetchData,
+    lookupKinds: ['colleges'],
+    resolve,
+    onInsert,
+  })
 
   const handleInProgress = async (id) => {
     const entry = queue.find((r) => r.id === id)
@@ -432,17 +398,17 @@ export default function AdvisorPage() {
     if (isNextAvailable) query = query.is('advisor_id', null)
     const { error } = await query
     if (error) return
-    setQueue((prev) => prev.map((r) => r.id === id
-      ? { ...r, status: 'in-progress', in_progress_at, ...(isNextAvailable ? { advisor_id: advisorId } : {}) }
-      : r))
+    if (entry) applyRow({ ...entry, status: 'in-progress', in_progress_at, ...(isNextAvailable ? { advisor_id: advisorId } : {}) })
   }
 
   const handleSeen = async (id) => {
-    await supabase
+    const entry = queue.find((r) => r.id === id)
+    const seen_at = new Date().toISOString()
+    const { error } = await supabase
       .from('queue')
-      .update({ status: 'seen', seen_at: new Date().toISOString() })
+      .update({ status: 'seen', seen_at })
       .eq('id', id)
-    setQueue((prev) => prev.filter((r) => r.id !== id))
+    if (!error && entry) applyRow({ ...entry, status: 'seen', seen_at })
   }
 
   // Sort purely by wait time (oldest first) across all statuses
@@ -518,7 +484,7 @@ export default function AdvisorPage() {
         )}
 
         {/* Seen Today */}
-        <SeenTodaySection advisorId={advisorId} collegeId={collegeId} />
+        <SeenTodaySection seenRows={seenRows} loading={loading} />
       </div>
     </div>
   )

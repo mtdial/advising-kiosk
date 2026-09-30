@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAdminScope } from '../context/AdminScopeContext'
 import { supabase } from '../supabase'
+import { useLiveQueue, QUEUE_COLUMNS } from '../hooks/useLiveQueue'
 import NavBar from '../components/NavBar'
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -120,25 +121,20 @@ const TABS = [
 // ── TAB 1 — Live Queue ────────────────────────────────────────────────────────
 
 function LiveQueueTab({ now, effectiveSchoolId, isAllSchools }) {
-  const [rows, setRows]         = useState([])
-  const [seenRows, setSeenRows] = useState([])
-  const [loading, setLoading]   = useState(true)
+  const JOINS = 'college:colleges(name), advisor:advisors(name), school:schools(name)'
 
-  const todayStart = () => {
-    const d = new Date(); d.setHours(0, 0, 0, 0); return d
-  }
-
-  const fetchQueue = useCallback(async () => {
+  const fetchData = useCallback(async () => {
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
     let activeQuery = supabase
       .from('queue')
-      .select('*, college:colleges(name), advisor:advisors(name), school:schools(name)')
+      .select(`${QUEUE_COLUMNS}, ${JOINS}`)
       .in('status', ['waiting', 'in-progress'])
       .order('checked_in_at', { ascending: true })
     let seenQuery = supabase
       .from('queue')
-      .select('*, college:colleges(name), advisor:advisors(name), school:schools(name)')
+      .select(`${QUEUE_COLUMNS}, ${JOINS}`)
       .eq('status', 'seen')
-      .gte('seen_at', todayStart().toISOString())
+      .gte('seen_at', todayStart.toISOString())
       .order('seen_at', { ascending: false })
     // effectiveSchoolId is already resolved to "own school" for a system_admin,
     // "chosen school" or null ("All Schools") for a platform_admin.
@@ -147,20 +143,31 @@ function LiveQueueTab({ now, effectiveSchoolId, isAllSchools }) {
       seenQuery   = seenQuery.eq('school_id', effectiveSchoolId)
     }
     const [activeRes, seenRes] = await Promise.all([activeQuery, seenQuery])
-    if (!activeRes.error) setRows(activeRes.data ?? [])
-    if (!seenRes.error)   setSeenRows(seenRes.data ?? [])
-    setLoading(false)
+    if (activeRes.error || seenRes.error) return null
+    return { active: activeRes.data ?? [], seen: seenRes.data ?? [] }
   }, [effectiveSchoolId])
 
-  useEffect(() => {
-    fetchQueue()
-    const poll = setInterval(fetchQueue, 5000)
-    const channel = supabase
-      .channel('admin-queue-all')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue)
-      .subscribe()
-    return () => { clearInterval(poll); supabase.removeChannel(channel) }
-  }, [fetchQueue])
+  const resolve = useCallback((row, lookups) => {
+    if (effectiveSchoolId && row.school_id !== effectiveSchoolId) return false
+    const college = lookups.colleges?.get(row.college_id)
+    const advisor = lookups.advisors?.get(row.advisor_id)
+    const school  = lookups.schools?.get(row.school_id)
+    if ((row.college_id && !college) || (row.advisor_id && !advisor) || (row.school_id && !school)) return null
+    return {
+      ...row,
+      college: college ? { name: college.name } : null,
+      advisor: advisor ? { name: advisor.name } : null,
+      school:  school  ? { name: school.name }  : null,
+    }
+  }, [effectiveSchoolId])
+
+  const { active: rows, seen: seenRows, loading, refetch: fetchQueue } = useLiveQueue({
+    channelName: `admin-queue-${effectiveSchoolId ?? 'all'}`,
+    filter: effectiveSchoolId ? `school_id=eq.${effectiveSchoolId}` : undefined,
+    fetchData,
+    lookupKinds: ['colleges', 'advisors', 'schools'],
+    resolve,
+  })
 
   if (loading) return <div className="py-20 text-center text-gray-400">Loading queue…</div>
 

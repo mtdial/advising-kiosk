@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../supabase'
+import { useLiveQueue, QUEUE_COLUMNS } from '../hooks/useLiveQueue'
 import NavBar from '../components/NavBar'
 
 function formatWait(checkedInAt, now) {
@@ -97,55 +98,59 @@ function SeenTable({ rows }) {
 }
 
 export default function EASuiteAdminPage() {
-  const [waitingRows, setWaitingRows]   = useState([])
-  const [inProgRows, setInProgRows]     = useState([])
-  const [seenRows, setSeenRows]         = useState([])
-  const [loading, setLoading]           = useState(true)
-  const [now, setNow]                   = useState(Date.now())
+  const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [])
 
-  const fetchQueue = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
 
     const [activeRes, seenRes] = await Promise.all([
       supabase
         .from('queue')
-        .select('*, college:colleges(name), advisor:advisors!inner(name, ea_suite)')
+        .select(`${QUEUE_COLUMNS}, college:colleges(name), advisor:advisors!inner(name, ea_suite)`)
         .eq('advisor.ea_suite', true)
         .in('status', ['waiting', 'in-progress'])
         .order('checked_in_at', { ascending: true }),
       supabase
         .from('queue')
-        .select('*, college:colleges(name), advisor:advisors!inner(name, ea_suite)')
+        .select(`${QUEUE_COLUMNS}, college:colleges(name), advisor:advisors!inner(name, ea_suite)`)
         .eq('advisor.ea_suite', true)
         .eq('status', 'seen')
         .gte('seen_at', todayStart.toISOString())
         .order('seen_at', { ascending: false }),
     ])
-
-    if (!activeRes.error) {
-      const active = activeRes.data ?? []
-      setWaitingRows(active.filter(r => r.status === 'waiting'))
-      setInProgRows(active.filter(r => r.status === 'in-progress'))
-    }
-    if (!seenRes.error) setSeenRows(seenRes.data ?? [])
-    setLoading(false)
+    if (activeRes.error || seenRes.error) return null
+    return { active: activeRes.data ?? [], seen: seenRes.data ?? [] }
   }, [])
 
-  useEffect(() => {
-    fetchQueue()
-    const poll = setInterval(fetchQueue, 10000)
-    const channel = supabase
-      .channel('ea-suite-admin-queue')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue)
-      .subscribe()
-    return () => { clearInterval(poll); supabase.removeChannel(channel) }
-  }, [fetchQueue])
+  // Only rows assigned to a suite advisor belong here (mirrors the advisors!inner filter).
+  const resolve = useCallback((row, lookups) => {
+    if (!row.advisor_id) return false
+    const advisor = lookups.advisors?.get(row.advisor_id)
+    if (!advisor) return null
+    if (!advisor.ea_suite) return false
+    const college = lookups.colleges?.get(row.college_id)
+    if (row.college_id && !college) return null
+    return {
+      ...row,
+      college: college ? { name: college.name } : null,
+      advisor: { name: advisor.name, ea_suite: advisor.ea_suite },
+    }
+  }, [])
+
+  const { active, seen: seenRows, loading, refetch: fetchQueue } = useLiveQueue({
+    channelName: 'ea-suite-admin-queue',
+    fetchData,
+    lookupKinds: ['colleges', 'advisors'],
+    resolve,
+  })
+  const waitingRows = active.filter((r) => r.status === 'waiting')
+  const inProgRows  = active.filter((r) => r.status === 'in-progress')
 
   const totalActive = waitingRows.length + inProgRows.length
 
