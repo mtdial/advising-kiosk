@@ -283,6 +283,19 @@ async function callCreateAdvisor({ name, email, college_id, role, school_id }) {
   return data
 }
 
+// ── Shared: call reset-advisor-password edge function ─────────────────────────
+
+async function callResetPassword(advisor_id) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const { data, error } = await supabase.functions.invoke('reset-advisor-password', {
+    body: { advisor_id },
+    headers: { Authorization: `Bearer ${session?.access_token}` },
+  })
+  if (error) throw new Error(error.message)
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
 // ── TAB 2 — Add Advisor ───────────────────────────────────────────────────────
 
 function AddAdvisorTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAllSchools }) {
@@ -543,6 +556,8 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
   })
   const [saving, setSaving]                   = useState(false)
   const [error, setError]                     = useState('')
+  const [resetStage, setResetStage]           = useState('idle') // idle | confirm | working | done
+  const [resetMsg, setResetMsg]               = useState('')
   const [majorsList, setMajorsList]           = useState([])
   const [assignedMajorIds, setAssignedMajorIds] = useState(new Set())
   const [majorsLoading, setMajorsLoading]     = useState(false)
@@ -569,6 +584,19 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
       if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
+  }
+
+  const handleResetPassword = async () => {
+    setResetStage('working')
+    setResetMsg('')
+    try {
+      await callResetPassword(advisor.id)
+      setResetStage('done')
+      setResetMsg('Password reset to the default password.')
+    } catch (err) {
+      setResetStage('idle')
+      setResetMsg(err.message)
+    }
   }
 
   const handleSave = async (e) => {
@@ -674,6 +702,23 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
             </div>
           )}
           {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+          {(isPlatformAdmin || advisor.role !== 'platform_admin') && (
+            <div className="border border-gray-200 rounded-lg px-3 py-3">
+              <p className="text-sm font-semibold text-gray-700">Password</p>
+              <p className="text-xs text-gray-500 mt-0.5 mb-2">Reset this advisor's password to the default. They should change it after logging in.</p>
+              {resetStage === 'confirm' ? (
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={handleResetPassword} className="text-xs font-semibold bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors">Yes, reset to default</button>
+                  <button type="button" onClick={() => setResetStage('idle')} className="text-xs font-semibold text-gray-600 border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                </div>
+              ) : (
+                <button type="button" disabled={resetStage === 'working'} onClick={() => { setResetMsg(''); setResetStage('confirm') }} className="text-xs font-semibold text-[var(--primary)] border border-[var(--link-color)] px-3 py-1.5 rounded-lg hover:bg-[var(--link-color)] hover:text-white transition-colors disabled:opacity-60">
+                  {resetStage === 'working' ? 'Resetting…' : 'Reset password to default'}
+                </button>
+              )}
+              {resetMsg && <p className={`text-xs mt-2 ${resetStage === 'done' ? 'text-[#65780B]' : 'text-red-700'}`}>{resetMsg}</p>}
+            </div>
+          )}
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 bg-[var(--nav-fill)] text-white font-semibold py-2.5 rounded-lg hover:bg-[var(--hover-color)] transition-colors disabled:opacity-60">
