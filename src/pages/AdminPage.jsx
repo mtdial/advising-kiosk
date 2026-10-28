@@ -642,6 +642,10 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-bold text-[var(--primary)]">Edit Advisor</h3>
+          <a href={`/advisor?viewAs=${advisor.id}`} target="_blank" rel="noopener noreferrer"
+            className="ml-auto mr-3 text-xs font-semibold text-[var(--primary)] border border-[var(--primary)] rounded-lg px-2.5 py-1 hover:bg-gray-50">
+            View as advisor ↗
+          </a>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
         </div>
         <form onSubmit={handleSave} className="space-y-4">

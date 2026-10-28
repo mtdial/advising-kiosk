@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../supabase'
 import { useLiveQueue, QUEUE_COLUMNS } from '../hooks/useLiveQueue'
@@ -141,7 +142,7 @@ function EmptyState() {
 }
 
 // ── Queue card ────────────────────────────────────────────────────────────────
-function QueueCard({ entry, now, onInProgress, onSeen }) {
+function QueueCard({ entry, now, onInProgress, onSeen, readOnly }) {
   const isInProgress    = entry.status === 'in-progress'
   const collegeName     = entry.college?.name ?? '—'
   const isNextAvailable = entry.advisor_id === null
@@ -210,7 +211,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
 
         {/* Right: action buttons */}
         <div className="flex flex-col gap-2 flex-shrink-0 sm:items-end">
-          {entry.status === 'waiting' && (
+          {!readOnly && entry.status === 'waiting' && (
             <button
               onClick={() => onInProgress(entry.id)}
               className="bg-[var(--accent)] text-[var(--primary)] font-bold px-5 py-2.5 rounded-xl hover:bg-[#65780B] transition-colors text-sm shadow-sm w-full sm:w-auto"
@@ -218,7 +219,7 @@ function QueueCard({ entry, now, onInProgress, onSeen }) {
               Waiting
             </button>
           )}
-          {entry.status === 'in-progress' && (
+          {!readOnly && entry.status === 'in-progress' && (
             <button
               onClick={() => onSeen(entry.id)}
               className="bg-[#1F414D] text-white font-bold px-5 py-2.5 rounded-xl hover:bg-[#173035] transition-colors text-sm shadow-sm w-full sm:w-auto"
@@ -280,7 +281,24 @@ function SeenTodaySection({ seenRows, loading }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function AdvisorPage() {
-  const { advisorId, collegeId, schoolId } = useAuth()
+  const { advisorId: ownAdvisorId, collegeId: ownCollegeId, schoolId: ownSchoolId, role } = useAuth()
+
+  // Admins can open /advisor?viewAs=<advisor id> to see exactly what that advisor
+  // sees. Read-only: no actions, no office-hours toggle, no chime or notifications.
+  const [params] = useSearchParams()
+  const viewAsId = ['platform_admin', 'system_admin'].includes(role) ? params.get('viewAs') : null
+  const readOnly = !!viewAsId
+  const [viewed, setViewed] = useState(null)
+  const [viewError, setViewError] = useState('')
+  useEffect(() => {
+    if (!viewAsId) { setViewed(null); return }
+    setViewed(null); setViewError('')
+    supabase.from('advisors').select('id, name, college_id, school_id').eq('id', viewAsId).maybeSingle()
+      .then(({ data }) => { if (data) setViewed(data); else setViewError('Advisor not found.') })
+  }, [viewAsId])
+  const advisorId = readOnly ? viewed?.id        : ownAdvisorId
+  const collegeId = readOnly ? viewed?.college_id : ownCollegeId
+  const schoolId  = readOnly ? viewed?.school_id  : ownSchoolId
   const [now, setNow]         = useState(Date.now())
   const [toasts, setToasts]   = useState([])
 
@@ -291,10 +309,10 @@ export default function AdvisorPage() {
   const { startFlash } = useTabFlash()
 
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
+    if (!readOnly && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission()
     }
-  }, [])
+  }, [readOnly])
 
   // Fetch current office hours status
   useEffect(() => {
@@ -362,14 +380,14 @@ export default function AdvisorPage() {
   }, [advisorId, collegeId])
 
   const onInsert = useCallback((row) => {
-    if (row.status !== 'waiting') return
+    if (readOnly || row.status !== 'waiting') return
     const name = row.student_name
     const type = row.appointment_type ?? 'Drop-In'
     playChime()
     sendPushNotification(name, type)
     startFlash()
     addToast(`New check-in: ${name} (${type})`)
-  }, [addToast, startFlash])
+  }, [addToast, startFlash, readOnly])
 
   // No-college advisors (admins) subscribe by school and filter to themselves client-side,
   // so a reassignment away from them still arrives and removes the row.
@@ -424,6 +442,12 @@ export default function AdvisorPage() {
       <NavBar />
       <ToastList toasts={toasts} />
 
+      {readOnly && (
+        <div className="bg-[#FFF2E3] border-b border-[#A49137]/40 text-sm text-gray-800 px-4 py-2.5 text-center">
+          {viewError || <>Viewing as <strong>{viewed?.name ?? '…'}</strong> — read-only admin view. Actions are disabled.</>}
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto px-4 py-8">
 
         {/* Office hours availability toggle */}
@@ -439,7 +463,7 @@ export default function AdvisorPage() {
           <Toggle
             checked={officeHoursAvailable}
             onChange={toggleOfficeHours}
-            disabled={officeHoursLoading}
+            disabled={officeHoursLoading || readOnly}
           />
         </div>
 
@@ -478,6 +502,7 @@ export default function AdvisorPage() {
                 now={now}
                 onInProgress={handleInProgress}
                 onSeen={handleSeen}
+                readOnly={readOnly}
               />
             ))}
           </div>
