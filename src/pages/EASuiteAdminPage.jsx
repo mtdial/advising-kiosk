@@ -112,13 +112,13 @@ export default function EASuiteAdminPage() {
     const [activeRes, seenRes] = await Promise.all([
       supabase
         .from('queue')
-        .select(`${QUEUE_COLUMNS}, college:colleges(name), advisor:advisors!inner(name, ea_suite)`)
+        .select(`${QUEUE_COLUMNS}, college:colleges(name), advisor:advisors!advisor_id!inner(name, ea_suite)`)
         .eq('advisor.ea_suite', true)
         .in('status', ['waiting', 'in-progress'])
         .order('checked_in_at', { ascending: true }),
       supabase
         .from('queue')
-        .select(`${QUEUE_COLUMNS}, college:colleges(name), advisor:advisors!inner(name, ea_suite)`)
+        .select(`${QUEUE_COLUMNS}, college:colleges(name), advisor:advisors!advisor_id!inner(name, ea_suite)`)
         .eq('advisor.ea_suite', true)
         .eq('status', 'seen')
         .gte('seen_at', todayStart.toISOString())

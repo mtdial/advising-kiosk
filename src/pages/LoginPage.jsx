@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 
 function landingRoute({ role, isCollegeAdmin, isSuiteAdmin }) {
   if (role === 'platform_admin' || role === 'system_admin') return '/admin'
-  if (isCollegeAdmin) return '/college-admin'
+  if (isCollegeAdmin || role === 'student_assistant') return '/college-admin'
   if (isSuiteAdmin) return '/suite-admin'
   return '/advisor'
 }

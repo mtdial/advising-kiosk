@@ -4,7 +4,7 @@ import { supabase } from '../supabase'
 // Columns the UI renders or filters on. Keep in sync with the queue table;
 // `major` is intentionally omitted because no screen displays it.
 export const QUEUE_COLUMNS =
-  'id, student_name, student_email, appointment_type, checked_in_at, in_progress_at, seen_at, status, notes, advisor_id, college_id, school_id'
+  'id, student_name, student_email, appointment_type, checked_in_at, in_progress_at, seen_at, status, notes, advisor_id, seen_by_advisor_id, college_id, school_id'
 
 const BACKSTOP_MS  = 3 * 60 * 1000
 const MIN_GAP_MS   = 2000

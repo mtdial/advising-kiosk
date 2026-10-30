@@ -63,7 +63,7 @@ function ApptBadge({ type }) {
   return <span className="text-xs font-semibold px-2 py-0.5 rounded bg-[#466A9F]/15 text-[#466A9F]">{type ?? '—'}</span>
 }
 
-const ROLE_LABELS = { platform_admin: 'Platform Admin', system_admin: 'System Admin', advisor: 'Advisor' }
+const ROLE_LABELS = { platform_admin: 'Platform Admin', system_admin: 'System Admin', advisor: 'Advisor', student_assistant: 'Student Assistant' }
 function formatRole(role) {
   return ROLE_LABELS[role] ?? role
 }
@@ -121,7 +121,7 @@ const TABS = [
 // ── TAB 1 — Live Queue ────────────────────────────────────────────────────────
 
 function LiveQueueTab({ now, effectiveSchoolId, isAllSchools }) {
-  const JOINS = 'college:colleges(name), advisor:advisors(name), school:schools(name)'
+  const JOINS = 'college:colleges(name), advisor:advisors!advisor_id(name), school:schools(name)'
 
   const fetchData = useCallback(async () => {
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
@@ -375,6 +375,7 @@ function AddAdvisorTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAllScho
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
             <select value={form.role} onChange={set('role')} className={`${inputCls} bg-white`}>
               <option value="advisor">Advisor</option>
+              <option value="student_assistant">Student Assistant</option>
               <option value="system_admin">System Admin</option>
               {isPlatformAdmin && <option value="platform_admin">Platform Admin</option>}
             </select>
@@ -547,6 +548,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
     start_date:       advisor.start_date ?? '',
     role:             advisor.role,
     is_active:        advisor.is_active ?? true,
+    hide_from_students: advisor.hide_from_students ?? false,
     is_college_admin: advisor.is_college_admin ?? false,
     is_uac_suite:     advisor.is_uac_suite ?? false,
     is_suite_admin:   advisor.is_suite_admin ?? false,
@@ -610,6 +612,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
       start_date:       form.start_date || null,
       role:             form.role,
       is_active:        form.is_active,
+      hide_from_students: form.hide_from_students,
       is_college_admin: form.is_college_admin,
       is_uac_suite:     form.is_uac_suite,
       is_suite_admin:   form.is_suite_admin,
@@ -629,6 +632,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
   const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent'
   const TOGGLES = [
     { key: 'is_active',        label: 'Active' },
+    { key: 'hide_from_students', label: 'Do not display on student selection' },
     { key: 'is_college_admin', label: 'College Admin' },
     { key: 'is_uac_suite',     label: 'UAC Suite' },
     { key: 'is_suite_admin',   label: 'Suite Admin' },
@@ -667,6 +671,7 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Role</label>
             <select value={form.role} onChange={set('role')} className={`${inputCls} bg-white`}>
               <option value="advisor">Advisor</option>
+              <option value="student_assistant">Student Assistant</option>
               <option value="system_admin">System Admin</option>
               {(isPlatformAdmin || advisor.role === 'platform_admin') && <option value="platform_admin">Platform Admin</option>}
             </select>
@@ -863,17 +868,18 @@ function ManageCollegesTab({ isPlatformAdmin, effectiveSchoolId, isAllSchools })
     setToggling(null)
   }
 
-  const toggleMajorDropdown = async (id, current) => {
-    setToggling(id + '_major')
-    await supabase.from('colleges').update({ show_major_dropdown: !current }).eq('id', id)
-    setColleges((prev) => prev.map((c) => c.id === id ? { ...c, show_major_dropdown: !current } : c))
+  const toggleCollegeFlag = async (id, field, current) => {
+    setToggling(id + field)
+    const { error } = await supabase.from('colleges').update({ [field]: !current }).eq('id', id)
+    if (!error) setColleges((prev) => prev.map((c) => c.id === id ? { ...c, [field]: !current } : c))
     setToggling(null)
   }
+  const toggleMajorDropdown = (id, current) => toggleCollegeFlag(id, 'show_major_dropdown', current)
 
   if (loading) return <div className="py-20 text-center text-gray-400">Loading colleges…</div>
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-xl font-bold text-[var(--primary)]">Manage Colleges</h2>
@@ -889,6 +895,8 @@ function ManageCollegesTab({ isPlatformAdmin, effectiveSchoolId, isAllSchools })
               <th className="px-5 py-3 text-gray-600 font-semibold">College Name</th>
               <th className="px-5 py-3 text-gray-600 font-semibold">Active</th>
               <th className="px-5 py-3 text-gray-600 font-semibold">Require Major</th>
+              <th className="px-5 py-3 text-gray-600 font-semibold">Allow "Next Available"</th>
+              <th className="px-5 py-3 text-gray-600 font-semibold">Require Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -904,8 +912,20 @@ function ManageCollegesTab({ isPlatformAdmin, effectiveSchoolId, isAllSchools })
                 </td>
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2.5">
-                    <Toggle checked={!!c.show_major_dropdown} onChange={() => toggleMajorDropdown(c.id, c.show_major_dropdown)} disabled={toggling === c.id + '_major'} />
+                    <Toggle checked={!!c.show_major_dropdown} onChange={() => toggleMajorDropdown(c.id, c.show_major_dropdown)} disabled={toggling === c.id + 'show_major_dropdown'} />
                     <span className={`text-xs font-semibold ${c.show_major_dropdown ? 'text-[#466A9F]' : 'text-gray-400'}`}>{c.show_major_dropdown ? 'On' : 'Off'}</span>
+                  </div>
+                </td>
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <Toggle checked={c.allow_next_available !== false} onChange={() => toggleCollegeFlag(c.id, 'allow_next_available', c.allow_next_available !== false)} disabled={toggling === c.id + 'allow_next_available'} />
+                    <span className={`text-xs font-semibold ${c.allow_next_available !== false ? 'text-[#466A9F]' : 'text-gray-400'}`}>{c.allow_next_available !== false ? 'On' : 'Off'}</span>
+                  </div>
+                </td>
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <Toggle checked={!!c.require_student_notes} onChange={() => toggleCollegeFlag(c.id, 'require_student_notes', c.require_student_notes)} disabled={toggling === c.id + 'require_student_notes'} />
+                    <span className={`text-xs font-semibold ${c.require_student_notes ? 'text-[#466A9F]' : 'text-gray-400'}`}>{c.require_student_notes ? 'On' : 'Off'}</span>
                   </div>
                 </td>
               </tr>

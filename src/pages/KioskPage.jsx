@@ -51,11 +51,14 @@ export default function KioskPage() {
   const [collegeError, setCollegeError]         = useState('')
   const [majorError, setMajorError]             = useState('')
   const [advisorError, setAdvisorError]         = useState('')
+  const [notesError, setNotesError]             = useState('')
 
   const [checkedInName, setCheckedInName] = useState('')
 
   const selectedCollege = colleges.find((c) => c.id === collegeId) ?? null
   const showMajorDropdown = !!selectedCollege?.show_major_dropdown
+  const allowNextAvailable = selectedCollege?.allow_next_available !== false
+  const notesRequired = !!selectedCollege?.require_student_notes
 
   const filteredMajors = collegeId
     ? allMajors.filter((m) => m.college_id === collegeId)
@@ -91,13 +94,15 @@ export default function KioskPage() {
         ] = await Promise.all([
           supabasePublic
             .from('colleges')
-            .select('id, name, show_major_dropdown')
+            .select('id, name, show_major_dropdown, allow_next_available, require_student_notes')
             .eq('is_active', true)
             .order('name', { ascending: true }),
           supabasePublic
             .from('advisors')
             .select('id, name, college_id, office_hours_available')
             .eq('is_active', true)
+            .eq('hide_from_students', false)
+            .neq('role', 'student_assistant')
             .order('name', { ascending: true }),
           supabasePublic
             .from('majors')
@@ -182,6 +187,7 @@ export default function KioskPage() {
     setCollegeError('')
     setMajorError('')
     setAdvisorError('')
+    setNotesError('')
     setSubmitError('')
   }
 
@@ -201,7 +207,9 @@ export default function KioskPage() {
     const cErr  = collegeId         ? '' : 'Please select your college.'
     const mErr  = showMajorDropdown && !majorId ? 'Please select your major.' : ''
     const aErr  = advisorId         ? '' : 'Please select an advisor.'
+    const noErr = notesRequired && !notes.trim() ? 'Please add a note for your advisor.' : ''
 
+    setNotesError(noErr)
     setNameError(nErr)
     setEmailError(eErr)
     setAppointmentError(apErr)
@@ -209,7 +217,7 @@ export default function KioskPage() {
     setMajorError(mErr)
     setAdvisorError(aErr)
 
-    if (nErr || eErr || apErr || cErr || mErr || aErr) return
+    if (nErr || eErr || apErr || cErr || mErr || aErr || noErr) return
 
     setSubmitting(true)
     try {
@@ -434,7 +442,7 @@ export default function KioskPage() {
                   ? 'No advisors available'
                   : 'Select your advisor...'}
               </option>
-              {appointmentType === DROP_IN_TYPE && collegeId && filteredAdvisors.length > 0 && (
+              {appointmentType === DROP_IN_TYPE && collegeId && allowNextAvailable && filteredAdvisors.length > 0 && (
                 <option value={NEXT_AVAILABLE}>Next Available</option>
               )}
               {filteredAdvisors.map((a) => (
@@ -447,15 +455,19 @@ export default function KioskPage() {
           {/* 7. Notes for advisor (optional) */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Notes for Advisor <span className="text-gray-400 font-normal">(optional)</span>
+              Notes for Advisor{' '}
+              {notesRequired
+                ? <span className="text-[#CC2E40]">*</span>
+                : <span className="text-gray-400 font-normal">(optional)</span>}
             </label>
             <textarea
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={(e) => { setNotes(e.target.value); if (notesError) setNotesError('') }}
               placeholder="Anything you'd like your advisor to know before your appointment…"
               rows={3}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors resize-none"
+              className={`${notesError ? 'border-red-400 bg-red-50' : 'border-gray-300'} w-full border rounded-lg px-4 py-3 text-gray-800 text-base focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-colors resize-none`}
             />
+            <FieldError msg={notesError} />
           </div>
 
           {/* Load error */}

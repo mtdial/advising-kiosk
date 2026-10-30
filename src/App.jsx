@@ -42,7 +42,7 @@ export default function App() {
             <Route
               path="/college-admin"
               element={
-                <ProtectedRoute requireFlag="isCollegeAdmin">
+                <ProtectedRoute requireFlag="isCollegeAdmin" alsoRoles={['student_assistant']}>
                   <CollegeAdminPage />
                 </ProtectedRoute>
               }

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 
 const ADMIN_ROLES = ['platform_admin', 'system_admin']
 
-export default function ProtectedRoute({ children, requiredRole, requireFlag }) {
+export default function ProtectedRoute({ children, requiredRole, requireFlag, alsoRoles = [] }) {
   const auth = useAuth()
   const { user, role, loading } = auth
 
@@ -29,7 +29,7 @@ export default function ProtectedRoute({ children, requiredRole, requireFlag }) 
   // Either admin tier can see any flag-gated view. A system_admin's own
   // queries are still scoped to their own school_id — this route guard just
   // decides who gets past the door, not what they see once inside.
-  if (requireFlag && !auth[requireFlag] && !ADMIN_ROLES.includes(role)) {
+  if (requireFlag && !auth[requireFlag] && !ADMIN_ROLES.includes(role) && !alsoRoles.includes(role)) {
     return <Navigate to="/advisor" replace />
   }
 

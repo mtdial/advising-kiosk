@@ -112,13 +112,13 @@ export default function SuiteAdminPage() {
     const [activeRes, seenRes] = await Promise.all([
       supabase
         .from('queue')
-        .select(`${QUEUE_COLUMNS}, college:colleges(name), advisor:advisors!inner(name, is_uac_suite)`)
+        .select(`${QUEUE_COLUMNS}, college:colleges(name), advisor:advisors!advisor_id!inner(name, is_uac_suite)`)
         .eq('advisor.is_uac_suite', true)
         .in('status', ['waiting', 'in-progress'])
         .order('checked_in_at', { ascending: true }),
       supabase
         .from('queue')
-        .select(`${QUEUE_COLUMNS}, college:colleges(name), advisor:advisors!inner(name, is_uac_suite)`)
+        .select(`${QUEUE_COLUMNS}, college:colleges(name), advisor:advisors!advisor_id!inner(name, is_uac_suite)`)
         .eq('advisor.is_uac_suite', true)
         .eq('status', 'seen')
         .gte('seen_at', todayStart.toISOString())

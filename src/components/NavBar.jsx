@@ -151,8 +151,8 @@ const ADMIN_ROLES = ['platform_admin', 'system_admin']
 const isAdminRole = (a) => ADMIN_ROLES.includes(a.role)
 
 const NAV_LINKS = [
-  { to: '/advisor',       label: 'My Queue',     show: () => true },
-  { to: '/college-admin', label: 'College Queue', show: (a) => a.isCollegeAdmin || isAdminRole(a) },
+  { to: '/advisor',       label: 'My Queue',     show: (a) => a.role !== 'student_assistant' },
+  { to: '/college-admin', label: 'College Queue', show: (a) => a.isCollegeAdmin || isAdminRole(a) || a.role === 'student_assistant' },
   { to: '/suite-admin',   label: 'UAC Suite Queue', show: (a) => a.isSuiteAdmin || isAdminRole(a) },
   { to: '/ea-suite-admin', label: 'EA Suite Queue',  show: (a) => a.isEASuiteAdmin || isAdminRole(a) },
   { to: '/theme-settings', label: 'Theme Settings',  show: (a) => a.isCampusAdmin || isAdminRole(a) },
