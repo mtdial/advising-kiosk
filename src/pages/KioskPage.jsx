@@ -58,7 +58,11 @@ export default function KioskPage() {
   const selectedCollege = colleges.find((c) => c.id === collegeId) ?? null
   const showMajorDropdown = !!selectedCollege?.show_major_dropdown
   const allowNextAvailable = selectedCollege?.allow_next_available !== false
-  const notesRequired = !!selectedCollege?.require_student_notes
+  const notesRequired = appointmentType === DROP_IN_TYPE
+    ? !!selectedCollege?.require_notes_dropin
+    : appointmentType
+    ? !!selectedCollege?.require_notes_scheduled
+    : false
 
   const filteredMajors = collegeId
     ? allMajors.filter((m) => m.college_id === collegeId)
@@ -94,7 +98,7 @@ export default function KioskPage() {
         ] = await Promise.all([
           supabasePublic
             .from('colleges')
-            .select('id, name, show_major_dropdown, allow_next_available, require_student_notes')
+            .select('id, name, show_major_dropdown, allow_next_available, require_notes_scheduled, require_notes_dropin')
             .eq('is_active', true)
             .order('name', { ascending: true }),
           supabasePublic

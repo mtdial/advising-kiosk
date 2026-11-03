@@ -748,12 +748,24 @@ function ManageAdvisorsTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAll
   const [editing, setEditing]   = useState(null)
   const [sortKey, setSortKey]   = useState('name')
   const [sortDir, setSortDir]   = useState('asc')
+  const FILTER_DEFAULTS = { search: '', status: '', college: '', role: '', collegeAdmin: '', major: '' }
+  const [filters, setFilters]   = useState(FILTER_DEFAULTS)
+  const [advisorMajors, setAdvisorMajors] = useState({})
+  const [majorNames, setMajorNames]       = useState({})
 
   const fetchAdvisors = useCallback(async () => {
     let query = supabase.from('advisors').select('*, college:colleges(name), school:schools(name)')
     if (effectiveSchoolId) query = query.eq('school_id', effectiveSchoolId)
-    const { data } = await query
+    const [{ data }, { data: am }, { data: majors }] = await Promise.all([
+      query,
+      supabase.from('advisor_majors').select('advisor_id, major_id'),
+      supabase.from('majors').select('id, name'),
+    ])
     setAdvisors(data ?? [])
+    const byAdvisor = {}
+    ;(am ?? []).forEach((r) => { (byAdvisor[r.advisor_id] ??= new Set()).add(r.major_id) })
+    setAdvisorMajors(byAdvisor)
+    setMajorNames(Object.fromEntries((majors ?? []).map((m) => [m.id, m.name])))
     setLoading(false)
   }, [effectiveSchoolId])
 
@@ -762,14 +774,37 @@ function ManageAdvisorsTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAll
   const handleSaved = (updated) => {
     setAdvisors((prev) => prev.map((a) => a.id === updated.id ? { ...a, ...updated } : a))
     setEditing(null)
+    fetchAdvisors()
   }
+
+  const setFilter = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }))
+  const filtersActive = Object.entries(filters).some(([k, v]) => v !== FILTER_DEFAULTS[k])
+  const q = filters.search.trim().toLowerCase()
+  const filtered = advisors.filter((a) => {
+    if (q && !`${a.name ?? ''} ${a.email ?? ''}`.toLowerCase().includes(q)) return false
+    if (filters.status === 'active' && !a.is_active) return false
+    if (filters.status === 'inactive' && a.is_active) return false
+    if (filters.college && a.college_id !== filters.college) return false
+    if (filters.role && a.role !== filters.role) return false
+    if (filters.collegeAdmin === 'yes' && !a.is_college_admin) return false
+    if (filters.collegeAdmin === 'no' && a.is_college_admin) return false
+    const assigned = advisorMajors[a.id]
+    if (filters.major === 'any' && !(assigned?.size > 0)) return false
+    if (filters.major === 'none' && assigned?.size > 0) return false
+    if (filters.major && !['any', 'none'].includes(filters.major) && !assigned?.has(filters.major)) return false
+    return true
+  })
+  const assignedMajorOptions = [...new Set(Object.values(advisorMajors).flatMap((s) => [...s]))]
+    .filter((id) => majorNames[id])
+    .sort((x, y) => majorNames[x].localeCompare(majorNames[y]))
+  const roleOptions = [...new Set(advisors.map((a) => a.role).filter(Boolean))]
 
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
   }
 
-  const sorted = [...advisors].sort((a, b) => {
+  const sorted = [...filtered].sort((a, b) => {
     let av = '', bv = ''
     if (sortKey === 'name')    { av = a.name ?? ''; bv = b.name ?? '' }
     if (sortKey === 'college') { av = a.college?.name ?? ''; bv = b.college?.name ?? '' }
@@ -798,11 +833,44 @@ function ManageAdvisorsTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAll
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-xl font-bold text-[var(--primary)]">Manage Advisors</h2>
-          <p className="text-sm text-gray-500 mt-0.5">{advisors.length} total advisors</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {filtersActive ? `${filtered.length} of ${advisors.length} advisors` : `${advisors.length} total advisors`}
+          </p>
         </div>
         <button onClick={fetchAdvisors} className="text-sm border border-[var(--link-color)] text-[var(--primary)] px-3 py-1.5 rounded-lg hover:bg-[var(--link-color)] hover:text-white transition-colors">Refresh</button>
       </div>
-      {advisors.length === 0 ? (
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <input type="search" value={filters.search} onChange={setFilter('search')} placeholder="Search name or email…"
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" />
+        <select value={filters.status} onChange={setFilter('status')} className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+          <option value="">Status: All</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select value={filters.college} onChange={setFilter('college')} className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+          <option value="">College: All</option>
+          {colleges.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select value={filters.role} onChange={setFilter('role')} className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+          <option value="">Role: All</option>
+          {roleOptions.map((r) => <option key={r} value={r}>{formatRole(r)}</option>)}
+        </select>
+        <select value={filters.collegeAdmin} onChange={setFilter('collegeAdmin')} className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+          <option value="">College Admin: All</option>
+          <option value="yes">College Admin: Yes</option>
+          <option value="no">College Admin: No</option>
+        </select>
+        <select value={filters.major} onChange={setFilter('major')} className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+          <option value="">Assigned Major: All</option>
+          <option value="any">Has assigned majors</option>
+          <option value="none">No assigned majors</option>
+          {assignedMajorOptions.map((id) => <option key={id} value={id}>{majorNames[id]}</option>)}
+        </select>
+        {filtersActive && (
+          <button onClick={() => setFilters(FILTER_DEFAULTS)} className="text-sm text-[var(--primary)] underline px-1">Clear filters</button>
+        )}
+      </div>
+      {sorted.length === 0 ? (
         <div className="bg-white rounded-xl shadow p-12 text-center text-gray-400">No advisors found.</div>
       ) : (
         <div className="bg-white rounded-xl shadow overflow-x-auto">
@@ -896,7 +964,8 @@ function ManageCollegesTab({ isPlatformAdmin, effectiveSchoolId, isAllSchools })
               <th className="px-5 py-3 text-gray-600 font-semibold">Active</th>
               <th className="px-5 py-3 text-gray-600 font-semibold">Require Major</th>
               <th className="px-5 py-3 text-gray-600 font-semibold">Allow "Next Available"</th>
-              <th className="px-5 py-3 text-gray-600 font-semibold">Require Notes</th>
+              <th className="px-5 py-3 text-gray-600 font-semibold">Require Notes (Scheduled)</th>
+              <th className="px-5 py-3 text-gray-600 font-semibold">Require Notes (Drop-In)</th>
             </tr>
           </thead>
           <tbody>
@@ -922,12 +991,14 @@ function ManageCollegesTab({ isPlatformAdmin, effectiveSchoolId, isAllSchools })
                     <span className={`text-xs font-semibold ${c.allow_next_available !== false ? 'text-[#466A9F]' : 'text-gray-400'}`}>{c.allow_next_available !== false ? 'On' : 'Off'}</span>
                   </div>
                 </td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <Toggle checked={!!c.require_student_notes} onChange={() => toggleCollegeFlag(c.id, 'require_student_notes', c.require_student_notes)} disabled={toggling === c.id + 'require_student_notes'} />
-                    <span className={`text-xs font-semibold ${c.require_student_notes ? 'text-[#466A9F]' : 'text-gray-400'}`}>{c.require_student_notes ? 'On' : 'Off'}</span>
-                  </div>
-                </td>
+                {['require_notes_scheduled', 'require_notes_dropin'].map((field) => (
+                  <td key={field} className="px-5 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <Toggle checked={!!c[field]} onChange={() => toggleCollegeFlag(c.id, field, c[field])} disabled={toggling === c.id + field} />
+                      <span className={`text-xs font-semibold ${c[field] ? 'text-[#466A9F]' : 'text-gray-400'}`}>{c[field] ? 'On' : 'Off'}</span>
+                    </div>
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
