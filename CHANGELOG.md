@@ -4,6 +4,13 @@ All notable changes to the UAC Advising Kiosk are documented here.
 
 ---
 
+## [1.8.1] — 2026-11-03
+
+### Fixes
+- **Student assistants can no longer reach My Queue** — visiting `/advisor` directly, or being bounced by a route guard, now sends them to the College Queue
+
+---
+
 ## [1.8.0] — 2026-11-03
 
 ### Features

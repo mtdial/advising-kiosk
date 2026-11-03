@@ -26,7 +26,7 @@ export default function App() {
             <Route
               path="/advisor"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute blockRoles={['student_assistant']}>
                   <AdvisorPage />
                 </ProtectedRoute>
               }

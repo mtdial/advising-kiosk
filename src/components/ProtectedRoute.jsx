@@ -3,9 +3,11 @@ import { useAuth } from '../context/AuthContext'
 
 const ADMIN_ROLES = ['platform_admin', 'system_admin']
 
-export default function ProtectedRoute({ children, requiredRole, requireFlag, alsoRoles = [] }) {
+export default function ProtectedRoute({ children, requiredRole, requireFlag, alsoRoles = [], blockRoles = [] }) {
   const auth = useAuth()
   const { user, role, loading } = auth
+  // Student assistants never see My Queue; their home is the college queue.
+  const fallback = role === 'student_assistant' ? '/college-admin' : '/advisor'
 
   if (loading) {
     return (
@@ -19,10 +21,14 @@ export default function ProtectedRoute({ children, requiredRole, requireFlag, al
     return <Navigate to="/login" replace />
   }
 
+  if (blockRoles.includes(role)) {
+    return <Navigate to={fallback} replace />
+  }
+
   if (requiredRole) {
     const allowed = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
     if (!allowed.includes(role)) {
-      return <Navigate to="/advisor" replace />
+      return <Navigate to={fallback} replace />
     }
   }
 
@@ -30,7 +36,7 @@ export default function ProtectedRoute({ children, requiredRole, requireFlag, al
   // queries are still scoped to their own school_id — this route guard just
   // decides who gets past the door, not what they see once inside.
   if (requireFlag && !auth[requireFlag] && !ADMIN_ROLES.includes(role) && !alsoRoles.includes(role)) {
-    return <Navigate to="/advisor" replace />
+    return <Navigate to={fallback} replace />
   }
 
   return children
