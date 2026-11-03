@@ -4,7 +4,7 @@ All notable changes to the UAC Advising Kiosk are documented here.
 
 ---
 
-## [Unreleased]
+## [1.9.0] — 2026-11-03
 
 ### Features
 - **Nightly queue reset** — a scheduled Power Automate flow saves the day's queue to SharePoint as a dated CSV, then calls the new `clear-queue` edge function to empty the `queue` table (see `docs/power-automate-guide.md`)
