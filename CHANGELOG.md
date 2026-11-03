@@ -4,16 +4,6 @@ All notable changes to the UAC Advising Kiosk are documented here.
 
 ---
 
-## [1.9.0] — 2026-11-03
-
-### Features
-- **Nightly queue reset** — a scheduled Power Automate flow saves the day's queue to SharePoint as a dated CSV, then calls the new `clear-queue` edge function to empty the `queue` table (see `docs/power-automate-guide.md`)
-
-### Docs
-- Added the advisor user guide and Power Automate guide; updated "How the Kiosk Works"
-
----
-
 ## [1.8.0] — 2026-11-03
 
 ### Features
@@ -49,9 +39,14 @@ All notable changes to the UAC Advising Kiosk are documented here.
 ### Features
 - **Advisor start date** on Add Advisor, Edit Advisor, and bulk upload
 
+- **Nightly queue reset** — a scheduled Power Automate flow saves the day's queue to SharePoint as a dated CSV, then calls the new `clear-queue` edge function to empty the `queue` table (see `docs/power-automate-guide.md`); running since 2026-09-30
+
 ### Performance
 - **Realtime queue** — new `useLiveQueue` hook loads the queue once and applies Realtime INSERT/UPDATE/DELETE events, replacing 2–10 second polling on the advisor, admin, college admin, and suite pages; refetches on reconnect, focus, and tab visibility, with a 3-minute backstop that pauses while the tab is hidden
 - Queue queries select explicit columns instead of `select *`
+
+### Docs
+- Added the advisor user guide and Power Automate guide; updated "How the Kiosk Works"
 
 ### Database
 - Added `start_date` to `advisors`
