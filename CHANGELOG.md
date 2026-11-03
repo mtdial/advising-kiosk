@@ -7,22 +7,28 @@ All notable changes to the UAC Advising Kiosk are documented here.
 ## [1.8.0] — 2026-11-03
 
 ### Features
-- **Manage Advisors filters** — search plus status, college, role, college admin, and assigned major filters
-- **Require notes split by appointment type** — colleges now have separate "require student notes" settings for Scheduled and Drop-In appointments
+- **Manage Advisors filters** — search plus status, college, role, college admin, and assigned major filters; the header shows "X of Y advisors" while a filter is active
+- **Require notes split by appointment type** — Manage Colleges now has separate "Require Notes (Scheduled)" and "Require Notes (Drop-In)" toggles. On the kiosk, the Notes for Advisor asterisk and "please add a note" check follow the selected appointment type, and the field stays optional until a type is picked. Colleges that required notes before have both toggles on
+- **Next Available check-ins respect the drop-in toggle** — advisors with "Available for drop-in" off no longer see unclaimed Next Available students in their queue or get chime/toast alerts for them; named check-ins are unaffected
+
+### Docs
+- Added `docs/advisor-and-college-record-options.md`, a reference of every setting on advisor and college records
+- Updated "How the Kiosk Works" for the drop-in toggle and the admin reset-password instructions
 
 ### Database
-- Migration `20261103000000_split_require_notes.sql`
+- Migration `20261103000000_split_require_notes.sql`: adds `colleges.require_notes_scheduled` and `colleges.require_notes_dropin`, backfilled from `require_student_notes` (kept, but deprecated). Applied to dev and prod 2026-11-03
 
 ---
 
-## [1.7.0] — 2026-10-28 – 2026-10-30
+## [1.7.0] — 2026-10-28 – 2026-11-03
 
 ### Features
-- **Per-college kiosk settings** — toggles to allow "Next Available" for drop-ins and to require student notes
-- **Student Assistant role** — read-only College Queue access; hidden from student advisor selection
-- **"Do not display on student selection"** toggle on Edit Advisor
-- **Queue editing for college admins** — change a student's status and record which advisor saw them
-- **College Queue export** to a multi-sheet .xlsx
+- **Per-college kiosk settings** — new "Allow Next Available" (default on) and "Require Notes" (default off) columns in Manage Colleges; the kiosk hides Next Available for drop-ins when off, and marks Notes for Advisor required (red asterisk, blocks check-in when empty) when on (split by appointment type in 1.8.0)
+- **Student Assistant role** — new role option in Add Advisor and Edit Advisor; signs in directly to a read-only College Queue (no status dropdowns, no export), has no My Queue link, and never appears in the kiosk advisor list
+- **"Do not display on student selection"** toggle on Edit Advisor — hides that person from the kiosk advisor list
+- **Queue editing for college admins** — Status dropdown (Waiting / In progress / Seen) on every College Queue row, saved immediately; moving back to Waiting clears the in-progress and seen times
+- **"Seen By" column** on Currently Being Seen and Seen Today — pick the advisor who actually saw the student (active advisors in the college, student assistants excluded); stored separately from the advisor the student chose. Marking Seen defaults it to the chosen advisor; picking a Seen By on a Next Available entry also assigns that advisor to it
+- **College Queue export** to a multi-sheet .xlsx (Live Queue, Currently Being Seen, Seen Today, including Status and Seen By); admin-only, built in-app with no new dependency
 - **Reset password** button in Edit Advisor — resets an advisor to the default password (new `reset-advisor-password` edge function; platform admins any school, system admins their own school only, never a platform admin)
 - **View as advisor** — admins can open a read-only view of an advisor's queue from Edit Advisor
 
@@ -30,7 +36,7 @@ All notable changes to the UAC Advising Kiosk are documented here.
 - Queue-to-advisor joins pinned to `advisor_id` now that `queue` has two advisor foreign keys
 
 ### Database
-- Migration `20261030000000_college_kiosk_settings_student_assistant.sql`
+- Migration `20261030000000_college_kiosk_settings_student_assistant.sql`: `colleges.allow_next_available`, `colleges.require_student_notes`, `advisors.hide_from_students`, `queue.seen_by_advisor_id` (references `advisors`), and `student_assistant` added to the `advisors.role` check. Applied to dev 2026-10-30 and prod 2026-11-03
 
 ---
 
@@ -86,6 +92,8 @@ All notable changes to the UAC Advising Kiosk are documented here.
 - **Student Kiosk link** added to the NavBar — advisors can open the live student-facing check-in page directly from the advisor interface
 - **Print Check-In Sign** button added to all queue pages (Admin, Advisor, College Admin, EA Suite Admin, Suite Admin) — opens a static PDF bundled with the app, replacing the previous dynamically generated QR sign page
 - Static check-in sign PDF (`advising-checkin-sign.pdf`) added to the public folder for reliable, always-available access
+
+---
 
 ## [1.3.0] — 2026-08-31
 

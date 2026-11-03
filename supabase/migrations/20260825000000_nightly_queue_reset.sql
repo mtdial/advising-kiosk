@@ -1,0 +1,5 @@
+-- Queue archiving is handled by Power Automate + SharePoint.
+-- A scheduled Power Automate flow pulls queue data nightly via the
+-- Supabase REST API, saves it to SharePoint as a dated CSV, then
+-- calls the clear-queue Edge Function to wipe the table.
+-- No database schema changes are needed for this approach.

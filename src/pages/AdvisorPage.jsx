@@ -379,8 +379,13 @@ export default function AdvisorPage() {
     return { ...row, college: college ? { name: college.name } : null }
   }, [advisorId, collegeId])
 
+  // Unclaimed "Next Available" rows only reach advisors who are available for drop-ins.
+  const officeHoursRef = useRef(false)
+  officeHoursRef.current = officeHoursAvailable
+
   const onInsert = useCallback((row) => {
     if (readOnly || row.status !== 'waiting') return
+    if (row.advisor_id === null && !officeHoursRef.current) return
     const name = row.student_name
     const type = row.appointment_type ?? 'Drop-In'
     playChime()
@@ -395,7 +400,7 @@ export default function AdvisorPage() {
     ? `college_id=eq.${collegeId}`
     : (schoolId ? `school_id=eq.${schoolId}` : `advisor_id=eq.${advisorId}`)
 
-  const { active: queue, seen: seenRows, loading, applyRow } = useLiveQueue({
+  const { active: allActive, seen: seenRows, loading, applyRow } = useLiveQueue({
     enabled: !!advisorId,
     channelName: `advisor-queue-${advisorId}-${collegeId ?? 'none'}`,
     filter: realtimeFilter,
@@ -404,6 +409,10 @@ export default function AdvisorPage() {
     resolve,
     onInsert,
   })
+
+  const queue = officeHoursAvailable
+    ? allActive
+    : allActive.filter((r) => r.advisor_id !== null)
 
   const handleInProgress = async (id) => {
     const entry = queue.find((r) => r.id === id)

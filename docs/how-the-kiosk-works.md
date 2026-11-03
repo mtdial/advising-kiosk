@@ -14,7 +14,7 @@ Once they submit, they get a confirmation screen with a checkmark and a ten-seco
 
 ## What you see: your queue
 
-Log in at `/login` and you land on your queue. It shows students who picked you by name, plus any Next Available drop-ins waiting in your college that nobody has claimed yet. You will not see students who checked in for a named colleague, even one in your same college.
+Log in at `/login` and you land on your queue. It shows students who picked you by name, plus any Next Available drop-ins waiting in your college that nobody has claimed yet (only while your Available for drop-in toggle is on). You will not see students who checked in for a named colleague, even one in your same college.
 
 Each card shows the student's name, email, college, appointment type, a "Here to see: You" or "Here to see: Next Available" line, and a running wait timer. A Next Available card also carries a purple "Next Available" badge. New check-ins appear within a couple of seconds without you refreshing anything, and if your tab is open when it happens, you'll hear a two-tone chime and see a toast notification. Browsers block audio that isn't triggered by a click, so the very first chime of your session may not play until you've clicked somewhere on the page. After that it works normally. Keep the tab open if you want the chime and toast; the queue itself still updates in the background even if you're on another tab.
 
@@ -29,7 +29,7 @@ Marking someone "Seen" doesn't delete their record. It just takes them off the a
 
 ## Your account
 
-Your login is your email and a password, both set up by an admin. When an admin adds you (individually or through the bulk CSV upload), your account is created with the default password `uackiosk`. Change it the first time you log in, from **Change Password** in the top nav. There's no self-service "forgot password" link on the login screen right now: if you get locked out, ask your kiosk admin to reset your account in Supabase directly.
+Your login is your email and a password, both set up by an admin. When an admin adds you (individually or through the bulk CSV upload), your account is created with the default password `uackiosk`. Change it the first time you log in, from **Change Password** in the top nav. There's no self-service "forgot password" link on the login screen right now: if you get locked out, ask your kiosk admin to reset your password to the default from Manage Advisors (Edit → Reset password to default).
 
 Where you land after signing in depends on your role and flags, checked in this order: full admins go to the admin dashboard, College Admins go to the College Queue, Suite Admins go to the Suite Queue, and everyone else goes to their own queue. If you hold more than one of these at once, or you're a full admin, the top nav grows extra tabs (My Queue, College Queue, Suite Queue, Admin) so you can jump between the views you have access to. A plain advisor only ever sees their own queue and no extra tabs.
 
