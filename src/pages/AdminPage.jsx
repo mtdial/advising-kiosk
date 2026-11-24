@@ -296,11 +296,59 @@ async function callResetPassword(advisor_id) {
   return data
 }
 
+// ── Shared: supervisor links ──────────────────────────────────────────────────
+// Supervisors live in availability.advisor_supervisor (the Availability Grid's
+// schema), not on advisors, because advisors is readable without signing in.
+// Writes go through availability.set_supervisor, which only System Admins and
+// Platform Admins can call.
+
+const availability = () => supabase.schema('availability')
+
+function supervisorErrorText(err) {
+  const m = err?.message ?? String(err ?? '')
+  if (m.includes('not_authorized')) return 'Only System Admins and Platform Admins can set supervisors.'
+  if (m.includes('supervisor_not_found')) return 'That supervisor is not an active advisor at this school.'
+  if (m.includes('advisor_supervisor_check')) return 'An advisor cannot be their own supervisor.'
+  return m
+}
+
+async function saveSupervisor(advisorId, supervisorId) {
+  const { error } = await availability().rpc('set_supervisor', { p_advisor: advisorId, p_supervisor: supervisorId || null })
+  if (error) throw new Error(supervisorErrorText(error))
+}
+
+// Everyone at the school who could supervise: staff, not student assistants.
+function useSupervisorOptions(schoolId) {
+  const [loaded, setLoaded] = useState({ schoolId: null, options: [] })
+  useEffect(() => {
+    if (!schoolId) return
+    let live = true
+    supabase.from('advisors').select('id, name, is_active').eq('school_id', schoolId).neq('role', 'student_assistant').order('name')
+      .then(({ data }) => { if (live) setLoaded({ schoolId, options: data ?? [] }) })
+    return () => { live = false }
+  }, [schoolId])
+  return schoolId && loaded.schoolId === schoolId ? loaded.options : []
+}
+
+function SupervisorSelect({ value, onChange, options, excludeId, disabled, className }) {
+  // Active people only, plus the current supervisor if they have since gone inactive.
+  const shown = options.filter((o) => o.id !== excludeId && (o.is_active || o.id === value))
+  return (
+    <select value={value} onChange={onChange} disabled={disabled} className={className}>
+      <option value="">No supervisor</option>
+      {shown.map((o) => <option key={o.id} value={o.id}>{o.name}{o.is_active ? '' : ' (inactive)'}</option>)}
+    </select>
+  )
+}
+
+const SUPERVISOR_HINT = 'Reviews this advisor\'s Availability Grid. With no supervisor, grids go straight to the UAC admins.'
+
 // ── TAB 2 — Add Advisor ───────────────────────────────────────────────────────
 
 function AddAdvisorTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAllSchools }) {
-  const blank = { name: '', email: '', college_id: '', role: 'advisor', start_date: '' }
+  const blank = { name: '', email: '', college_id: '', role: 'advisor', start_date: '', supervisor_id: '' }
   const [form, setForm]       = useState(blank)
+  const supervisorOptions     = useSupervisorOptions(isAllSchools ? null : effectiveSchoolId)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError]     = useState('')
@@ -323,6 +371,12 @@ function AddAdvisorTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAllScho
       if (form.start_date) {
         const { error: sdErr } = await supabase.from('advisors').update({ start_date: form.start_date }).eq('email', form.email.trim().toLowerCase())
         if (sdErr) throw new Error(`Advisor added, but the start date did not save: ${sdErr.message}`)
+      }
+      if (form.supervisor_id) {
+        const { data: created, error: findErr } = await supabase.from('advisors').select('id').eq('email', form.email.trim().toLowerCase()).single()
+        if (findErr) throw new Error(`Advisor added, but the supervisor did not save: ${findErr.message}`)
+        try { await saveSupervisor(created.id, form.supervisor_id) }
+        catch (supErr) { throw new Error(`Advisor added, but the supervisor did not save: ${supErr.message}`) }
       }
       setSuccess(`Advisor added! They can now log in with the default password.`)
       setForm(blank)
@@ -379,6 +433,11 @@ function AddAdvisorTab({ colleges, isPlatformAdmin, effectiveSchoolId, isAllScho
               <option value="system_admin">System Admin</option>
               {isPlatformAdmin && <option value="platform_admin">Platform Admin</option>}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Supervisor</label>
+            <SupervisorSelect value={form.supervisor_id} onChange={set('supervisor_id')} options={supervisorOptions} className={`${inputCls} bg-white`} />
+            <p className="text-xs text-gray-400 mt-1">{SUPERVISOR_HINT}</p>
           </div>
           {error   && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
           {success && <p className="text-sm text-[#65780B] bg-[#CED318]/10 border border-[#CED318]/30 rounded-lg px-3 py-2">{success}</p>}
@@ -563,9 +622,25 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
   const [majorsList, setMajorsList]           = useState([])
   const [assignedMajorIds, setAssignedMajorIds] = useState(new Set())
   const [majorsLoading, setMajorsLoading]     = useState(false)
+  const supervisorOptions                     = useSupervisorOptions(advisor.school_id)
+  const [supervisorId, setSupervisorId]       = useState('')
+  const [savedSupervisorId, setSavedSupervisorId] = useState('')
+  const [supervisorLoading, setSupervisorLoading] = useState(true)
 
   const set = (k) => (e) => { setForm((f) => ({ ...f, [k]: e.target.value })); setError('') }
   const tog = (k) => () => { setForm((f) => ({ ...f, [k]: !f[k] })) }
+
+  useEffect(() => {
+    let live = true
+    availability().from('advisor_supervisor').select('supervisor_id').eq('advisor_id', advisor.id).maybeSingle()
+      .then(({ data, error: supErr }) => {
+        if (!live) return
+        if (supErr) setError(`Could not load the supervisor: ${supervisorErrorText(supErr)}`)
+        const id = data?.supervisor_id ?? ''
+        setSupervisorId(id); setSavedSupervisorId(id); setSupervisorLoading(false)
+      })
+    return () => { live = false }
+  }, [advisor.id])
 
   useEffect(() => {
     if (!form.college_id) { setMajorsList([]); setAssignedMajorIds(new Set()); return }
@@ -625,6 +700,16 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
     if (assignedMajorIds.size > 0) {
       await supabase.from('advisor_majors').insert([...assignedMajorIds].map((major_id) => ({ advisor_id: advisor.id, major_id })))
     }
+    if (!supervisorLoading && supervisorId !== savedSupervisorId) {
+      try {
+        await saveSupervisor(advisor.id, supervisorId)
+        setSavedSupervisorId(supervisorId)
+      } catch (supErr) {
+        setSaving(false)
+        setError(`Other changes saved, but the supervisor did not: ${supErr.message}`)
+        return
+      }
+    }
     setSaving(false)
     onSaved({ ...advisor, ...form, college_id: form.college_id || null, college: colleges.find((c) => c.id === form.college_id) ?? null })
   }
@@ -675,6 +760,11 @@ function EditAdvisorModal({ advisor, colleges, onClose, onSaved, isPlatformAdmin
               <option value="system_admin">System Admin</option>
               {(isPlatformAdmin || advisor.role === 'platform_admin') && <option value="platform_admin">Platform Admin</option>}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Supervisor</label>
+            <SupervisorSelect value={supervisorId} onChange={(e) => { setSupervisorId(e.target.value); setError('') }} options={supervisorOptions} excludeId={advisor.id} disabled={supervisorLoading || saving} className={`${inputCls} bg-white disabled:bg-gray-50`} />
+            <p className="text-xs text-gray-400 mt-1">{supervisorLoading ? 'Loading…' : SUPERVISOR_HINT}</p>
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-700 mb-1">Access & Status</p>
